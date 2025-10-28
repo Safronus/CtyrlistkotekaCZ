@@ -1,14 +1,14 @@
 {
   "n": 15140,
-  "m": 15159,
+  "m": 15259,
   "location_path": "/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Mapky lokací/Neroztříděné",
   "clover_path": "/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Obrázky ke zpracování",
   "output_folder": "/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/PDF k vytištění",
-  "pdf_filename": "F-15140-15159.pdf",
+  "pdf_filename": "F-15140-15189.pdf, F-15190-15239.pdf, F-15240-15259.pdf",
   "auto_filename": true,
   "copy_folder": "/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Zpracované miniatury",
   "copy_enabled": false,
-  "location_config": "{\n  \"26\":  [\"15140-15142\"],\n  \"98\":  [\"15143-15150\"],\n  \"99\":  [\"15151-15156\"],\n  \"100\": [\"15157\"]\n}",
+  "location_config": "{\n  \"26\":  [\"15140-15142\"],\n  \"30\":  [\"15242-15259\"],\n  \"31\":  [\"15158-15241\"],\n  \"98\":  [\"15143-15150\"],\n  \"99\":  [\"15151-15156\"],\n  \"100\": [\"15157\"]\n}",
   "notes": "{\n  \"15141\":   \"DAR - FAI AI Symposium 2025\",\n  \"15142\":   \"DAR - FAI AI Symposium 2025\",\n  \"15143\":   \"DAR - FAI AI Symposium 2025\",\n  \"15144\":   \"DAR - FAI AI Symposium 2025\",\n  \"15145\":   \"DAR - FAI AI Symposium 2025\",\n  \"15146\":   \"DAR - FAI AI Symposium 2025\",\n  \"15147\":   \"DAR - FAI AI Symposium 2025\",\n  \"15148\":   \"DAR - FAI AI Symposium 2025\",\n  \"15149\":   \"DAR - FAI AI Symposium 2025\",\n  \"15150\":   \"DAR - FAI AI Symposium 2025\",\n  \"15151\":   \"DAR - FAI AI Symposium 2025\",\n  \"15152\":   \"DAR - FAI AI Symposium 2025\",\n  \"15153\":   \"DAR - FAI AI Symposium 2025\",\n  \"15154\":   \"DAR - Míša Signál Festival 2025\",\n  \"15155\":   \"DAR - FAI AI Symposium 2025\",\n  \"15156\":   \"DAR - FAI AI Symposium 2025\"\n}",
   "status_config": "{\n  \"DAROVANY\":   [\"15141-15156\"]\n}",
   "anonym_config": "{\n  \"ANONYMIZOVANE\":   [\"15052-15058\"]\n}"
