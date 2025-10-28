@@ -2,7 +2,7 @@
 
 Aplikace v Pythonu s GUI (PySide6) pro správu sbírky čtyřlístků.
 
-**Verze:** 3.1c  
+**Verze:** 3.1f  
 **Datum vydání:** 2025-10-28
 
 > **Ochrana soukromí:** README neobsahuje osobní údaje, GPS souřadnice ani jména. Konfiguraci v `settings/*.json` neuvádíme.
@@ -15,28 +15,18 @@ Aplikace v Pythonu s GUI (PySide6) pro správu sbírky čtyřlístků.
 - Generování PDF (ReportLab).
 - Konfigurace v `settings/` (JSON).
 
-### Nové / opravené ve verzi 3.1c
-- **Počítadlo čtyřlístků** (podokno): chování **přesně podle `PočítadloČtyřlístků.py`**:
-  - levý klik přidá číslo, **pravý klik = Undo**,
-  - **náhled dalšího čísla pod kurzorem** (zap/vyp), startovní číslo **15140**,
-  - měřítko zobrazení s přepočtem kliků → **správné souřadnice na originálním obrázku**,
-  - **klávesy:** **Undo** (⌘Z), **Uložit** (⌘S), **Zavřít podokno** (⌘W),
+### Nástroj: Počítadlo čtyřlístků (🍀)
+- Umístění: horní **toolbar „Monitoring“**.
+- Ovládání v podokně:
+  - levý klik: **otisk čísla** do obrázku (start default **15140**),
+  - **pravý klik = Undo**, tlačítka **Undo/Reset**,
+  - **živý náhled** následujícího čísla se pohybuje **přímo pod kurzorem jako „razítko“**, zarovnání **na střed**,
+  - náhled je **světle šedý** a **o něco menší** než finální otisk (0.8×, outline silnější) — přesně jako ve skriptu `PočítadloČtyřlístků.py`,
+  - zavření podokna: **⌘W (Cmd+W)**, **Undo (⌘Z)**, **Uložit (⌘S)**,
   - výchozí složka dialogů:  
     `/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Čtyřlístky na sušičce/`
 
-**Ovládání:**  
-V hlavním okně klikni na **🍀 Počítadlo** v toolbaru „Monitoring“. Otevře se **podokno** (dock) s funkcionalitou. Zavření podokna: **Cmd+W**.
-
 ---
-
-## Požadavky
-- macOS (Apple Silicon i Intel), doporučeno aktuální
-- Python 3.10+ (doporučeno 3.12)
-- Virtuální prostředí (venv)
-
-### Systémové balíčky (pokud je potřeba)
-- **Tesseract OCR** (pro `pytesseract`): `brew install tesseract`
-- (volitelně) **libheif** pro `pillow-heif`: `brew install libheif`
 
 ## Instalace (macOS)
 ```bash
@@ -72,13 +62,10 @@ shiboken6==6.7.3
 ---
 
 ## Changelog
-- **v3.1c – 2025-10-28**
-  - Reimplementováno chování „Počítadlo čtyřlístků“ 1:1 podle skriptu (`levý/pravý klik`, náhled, start 15140, ⌘Z/⌘S/⌘W, scale-to-fit mapping).
-- **v3.1b – 2025-10-28**  
-  - (repo housekeeping, bump verze)  
-- **v3.1a – 2025-10-28**
-  - Tlačítko **🍀** na toolbaru „Monitoring“, podokno zavíratelné **Cmd+W**.
-- **v3.1 – 2025-10-28**
-  - Přidán nástroj **Počítadlo čtyřlístků**.
-- **v3.0 – 2025-10-28**
-  - První zveřejnění projektu, přidán `README.md`, `.gitignore`, `requirements.txt`.
+- **v3.1f – 2025-10-28**
+  - **Náhled čísel funguje jako „razítko“** přesně dle `PočítadloČtyřlístků.py`: menší šedý náhled (0.8×, outline +2) zarovnaný na **střed** kurzoru; klik vytvoří otisk do originálu.
+- **v3.1e – 2025-10-28** — Fix: náhled plynule sleduje kurzor.
+- **v3.1d – 2025-10-28** — Center text, macOS file dialog focus, bezpečné znovuotevření docku.
+- **v3.1c – 2025-10-28** — Parita chování se skriptem (undo, preview, mapování souřadnic).
+- **v3.1a–b – 2025-10-28** — Integrace tlačítka do toolbaru „Monitoring“, dock s Cmd+W.
+- **v3.0 – 2025-10-28** — První zveřejnění projektu.
