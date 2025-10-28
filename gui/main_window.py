@@ -1179,40 +1179,45 @@ class FourLeafCounterWidget(QWidget):
 
     def _render_image(self, draw_preview: bool) -> np.ndarray:
         """
-        Vykreslí čísla do kopie originálu; pokud draw_preview=True a je hover, vykreslí i 'další' číslo
-        na hover pozici. Kreslení je zarovnáno tak, aby STŘED textu byl přesně v bodě (kurzoru/kliku).
+        Vykreslí čísla do KOPIE originálu. Trvalé otisky = plná velikost/kontrast.
+        Náhled (razítko pod kurzorem) = 0.8×, světle šedý, silnější černý outline,
+        zarovnání NA STŘED kurzoru — přesně jako ve skriptu PočítadloČtyřlístků.py.
         """
         canvas = self.image_bgr.copy()
         font = cv2.FONT_HERSHEY_SIMPLEX
     
+        # 1) Trvalé otisky (plná velikost)
         n = self.start_number
         for (x, y) in self.points:
-            self._put_centered_text_with_outline(canvas, str(n), (x, y), font, self.font_scale, self.font_thickness)
+            self._put_centered_text_with_outline(
+                canvas, str(n), (x, y),
+                font, self.font_scale, self.font_thickness
+            )
             n += 1
     
+        # 2) Náhled (razítko) – jen pokud je povolen a nad obrázkem
         if draw_preview and self.show_preview and self.hover_pos_label is not None:
             mapped = self._map_label_to_image(self.hover_pos_label)
             if mapped is not None:
-                self._put_centered_text_with_outline(canvas, str(n), mapped, font, self.font_scale, self.font_thickness)
+                # menší a světlejší náhled
+                preview_scale = max(0.1, self.font_scale * 0.8)
+                preview_thick = max(1, int(round(self.font_thickness - 2)))
+                text = str(n)
+    
+                # spočítat středové zarovnání podle aktuální preview velikosti
+                (tw, th), _ = cv2.getTextSize(text, font, preview_scale, preview_thick)
+                cx, cy = int(mapped[0]), int(mapped[1])
+                org_x = int(round(cx - tw / 2.0))
+                org_y = int(round(cy + th / 2.0))
+    
+                # černý obrys výraznější
+                cv2.putText(canvas, text, (org_x, org_y), font, preview_scale,
+                            (0, 0, 0), preview_thick + 2, cv2.LINE_AA)
+                # světle šedá výplň
+                cv2.putText(canvas, text, (org_x, org_y), font, preview_scale,
+                            (180, 180, 180), preview_thick, cv2.LINE_AA)
     
         return canvas
-
-    
-    def _put_centered_text_with_outline(self, img: np.ndarray, text: str, center: Tuple[int, int],
-                                        font, scale: float, thickness: int) -> None:
-        """
-        Nakreslí text tak, aby jeho STŘED byl v 'center'.
-        OpenCV kreslí od baseline-levého rohu → přepočet přes getTextSize.
-        """
-        (w, h), baseline = cv2.getTextSize(text, font, scale, thickness)
-        cx, cy = int(center[0]), int(center[1])
-        org_x = int(round(cx - w / 2.0))
-        org_y = int(round(cy + h / 2.0))  # baseline = střed + h/2
-    
-        # černý obrys (silnější)
-        cv2.putText(img, text, (org_x, org_y), font, scale, (0, 0, 0), thickness + 4, cv2.LINE_AA)
-        # bílý text
-        cv2.putText(img, text, (org_x, org_y), font, scale, (255, 255, 255), thickness, cv2.LINE_AA)
         
     @staticmethod
     def _put_text_with_outline(img: np.ndarray, text: str, org: Tuple[int, int], font, scale: float, thickness: int) -> None:
