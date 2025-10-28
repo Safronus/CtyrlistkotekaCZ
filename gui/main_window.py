@@ -943,6 +943,7 @@ from PySide6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QSpinBox,
     QCheckBox, QFileDialog, QMessageBox, QDockWidget, QSizePolicy
 )
+from PySide6.QtWidgets import QApplication
 
 APP_VERSION = "3.1f"
 FOURLEAF_DEFAULT_DIR = Path("/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Čtyřlístky na sušičce/")
@@ -1038,11 +1039,24 @@ class FourLeafCounterWidget(QWidget):
         QShortcut(QKeySequence(QKeySequence.StandardKey.Save), self, activated=self.save_image)
         
     def _get_open_filename(self, caption: str, start_dir: str, filter_str: str) -> str:
-        # macOS focus fix: vlastní dialog, ApplicationModal, nenativní
         dlg = QFileDialog(self.window(), caption, start_dir, filter_str)
         dlg.setFileMode(QFileDialog.FileMode.ExistingFile)
         dlg.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-        dlg.setWindowModality(Qt.WindowModality.ApplicationModal)
+        dlg.setOption(QFileDialog.Option.DontUseCustomDirectoryIcons, True)
+        dlg.setDirectory(start_dir)
+        dlg.setWindowModality(Qt.WindowModality.WindowModal)
+        dlg.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+    
+        # Aktivace a fokus ještě před exec → macOS: okamžitě klikatelný
+        dlg.show()
+        QApplication.processEvents()
+        try:
+            dlg.raise_()
+            dlg.activateWindow()
+            dlg.setFocus()
+        except Exception:
+            pass
+    
         if dlg.exec() == QFileDialog.DialogCode.Accepted:
             files = dlg.selectedFiles()
             return files[0] if files else ""
@@ -1052,7 +1066,20 @@ class FourLeafCounterWidget(QWidget):
         dlg = QFileDialog(self.window(), caption, start_dir, filter_str)
         dlg.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
         dlg.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-        dlg.setWindowModality(Qt.WindowModality.ApplicationModal)
+        dlg.setOption(QFileDialog.Option.DontUseCustomDirectoryIcons, True)
+        dlg.setDirectory(start_dir)
+        dlg.setWindowModality(Qt.WindowModality.WindowModal)
+        dlg.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+    
+        dlg.show()
+        QApplication.processEvents()
+        try:
+            dlg.raise_()
+            dlg.activateWindow()
+            dlg.setFocus()
+        except Exception:
+            pass
+    
         if dlg.exec() == QFileDialog.DialogCode.Accepted:
             files = dlg.selectedFiles()
             return files[0] if files else ""
@@ -1283,8 +1310,13 @@ class FourLeafCounterWidget(QWidget):
 
     def resizeEvent(self, ev) -> None:
         super().resizeEvent(ev)
-        # Při změně velikosti přerenderuj (kvůli scale/offset)
-        self.render()
+        # Po změně velikosti okamžitě překresli podklad (prevence "divného růstu" náhledu)
+        try:
+            parent = self.parent()
+            if parent is not None and hasattr(parent, "render"):
+                parent.render()
+        except Exception:
+            pass
 
 class FourLeafCounterDock(QDockWidget):
     """Dock s počítadlem; zavírání ⌘W (QKeySequence.Close)."""
