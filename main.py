@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# --- Version & Changelog ---
-__version__ = "3.1b"
+__version__ = "3.1d"
 __changelog__ = """
-v3.1a (2025-10-28)
-- Oprava integrace: tlačítko 🍀 je v horním toolbaru 'Monitoring'.
-- Počítadlo jako nemodální okno; zavírání Cmd+W; výchozí složka dialogů nastavena.
+v3.1d (2025-10-28)
+- Střed textu na kurzor (OpenCV getTextSize).
+- macOS file dialog focus fix (nenativní, ApplicationModal).
+- Bezpečné znovuotevření docku (Shiboken.isValid + destroyed→None).
 """
 
 import sys

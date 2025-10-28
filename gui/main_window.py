@@ -14,6 +14,7 @@ import requests
 import tempfile
 import math
 from PIL import Image, ImageDraw
+from shiboken6 import Shiboken
 
 # OPRAVENÉ IMPORTY - bez duplicit
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -936,181 +937,313 @@ from typing import List, Optional, Tuple
 import cv2
 import numpy as np
 
-from PySide6.QtCore import Qt, QPoint
-from PySide6.QtGui import QAction, QIcon, QPainter, QPixmap, QFont, QKeySequence, QShortcut, QImage
+from PySide6.QtCore import Qt, QPoint, QSize
+from PySide6.QtGui import QImage, QPixmap, QKeySequence, QShortcut, QAction, QIcon, QPainter, QFont
 from PySide6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QSpinBox,
-    QCheckBox, QFileDialog, QMessageBox, QScrollArea, QDialog, QSizePolicy
+    QCheckBox, QFileDialog, QMessageBox, QDockWidget, QSizePolicy
 )
 
-APP_VERSION = "3.1b"
+APP_VERSION = "3.1c"
 FOURLEAF_DEFAULT_DIR = Path("/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Čtyřlístky na sušičce/")
 
 class FLClickableLabel(QLabel):
-    from PySide6.QtCore import Signal
-    clicked = Signal(QPoint)
-    rightClicked = Signal(QPoint)
-    hovered = Signal(QPoint)
-
+    """QLabel s callbacky pro klik a hover (přesně jako ve skriptu)."""
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.click_callback = None
+        self.hover_callback = None
         self.setMouseTracking(True)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.setMinimumSize(320, 240)
 
     def mousePressEvent(self, event) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.clicked.emit(event.position().toPoint())
-        elif event.button() == Qt.MouseButton.RightButton:
-            self.rightClicked.emit(event.position().toPoint())
+        if event.button() == Qt.MouseButton.LeftButton and self.click_callback:
+            self.click_callback(event.pos())
+        elif event.button() == Qt.MouseButton.RightButton and hasattr(self.parent(), "undo_last"):
+            self.parent().undo_last()
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event) -> None:
-        self.hovered.emit(event.position().toPoint())
+        if self.hover_callback:
+            self.hover_callback(event.pos())
         super().mouseMoveEvent(event)
 
-
 class FourLeafCounterWidget(QWidget):
-    """Interaktivní číslování bodů v obrázku (OpenCV), start, náhled, Undo/Reset, uložení."""
+    """
+    Podokno 'Počítadlo čtyřlístků' – chování 1:1 dle PočítadloČtyřlístků.py
+    - Levý klik přidá číslo
+    - Pravý klik = Undo
+    - Náhled dalšího čísla pod kurzorem (zap/vyp)
+    - Startovní číslo 15140, font_scale 2.5, font_thickness 7
+    - Přepočet kliků při škálování/centrování obrázku
+    - ⌘Z (Undo), ⌘S (Uložit)
+    """
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self._img_bgr: Optional[np.ndarray] = None
-        self._points: List[Tuple[int, int]] = []
-        self._start_num: int = 1
-        self._preview: bool = True
-        self._last_dir: Path = FOURLEAF_DEFAULT_DIR if FOURLEAF_DEFAULT_DIR.exists() else Path.home()
+        # Stav
+        self.image_bgr: Optional[np.ndarray] = None
+        self.points: List[Tuple[int, int]] = []
+        self.start_number: int = 15140
+        self.font_scale: float = 2.5
+        self.font_thickness: int = 7
+        self.hover_pos_label: Optional[QPoint] = None
+        self.show_preview: bool = True
+        self.last_dir: Path = FOURLEAF_DEFAULT_DIR if FOURLEAF_DEFAULT_DIR.exists() else Path.home()
 
+        # UI prvky
         self.btn_open = QPushButton("📂 Otevřít")
-        self.btn_save = QPushButton("💾 Uložit"); self.btn_save.setEnabled(False)
-        self.spin_start = QSpinBox(); self.spin_start.setRange(-999999, 999999); self.spin_start.setValue(self._start_num); self.spin_start.setPrefix("Start: ")
-        self.chk_preview = QCheckBox("Živý náhled"); self.chk_preview.setChecked(True)
-        self.btn_undo = QPushButton("↶ Zpět"); self.btn_undo.setEnabled(False)
-        self.btn_reset = QPushButton("🗑 Vymazat vše"); self.btn_reset.setEnabled(False)
+        self.btn_save = QPushButton("💾 Uložit")
+        self.btn_save.setEnabled(False)
+
+        self.spin_start = QSpinBox()
+        self.spin_start.setRange(-999_999_999, 999_999_999)
+        self.spin_start.setValue(self.start_number)
+        self.spin_start.setPrefix("Start: ")
+
+        self.chk_preview = QCheckBox("Živý náhled")
+        self.chk_preview.setChecked(True)
+
+        self.btn_undo = QPushButton("↶ Zpět")
+        self.btn_undo.setEnabled(False)
+        self.btn_reset = QPushButton("🗑 Vymazat vše")
+        self.btn_reset.setEnabled(False)
 
         top = QHBoxLayout()
         for w in (self.btn_open, self.btn_save, self.spin_start, self.chk_preview, self.btn_undo, self.btn_reset):
             top.addWidget(w)
         top.addStretch(1)
 
-        self.lbl = FLClickableLabel()
-        self.lbl.setMinimumSize(320, 240)
-
-        self.scroll = QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setWidget(self.lbl)
+        self.label = FLClickableLabel(self)
 
         lay = QVBoxLayout(self)
         lay.addLayout(top)
-        lay.addWidget(self.scroll)
+        lay.addWidget(self.label)
 
+        # Callbacky do labelu (přesně jako ve skriptu)
+        self.label.click_callback = self.label_click
+        self.label.hover_callback = self.label_hover
+
+        # Signály
         self.btn_open.clicked.connect(self.open_image)
         self.btn_save.clicked.connect(self.save_image)
-        self.spin_start.valueChanged.connect(self._on_start_changed)
-        self.chk_preview.toggled.connect(self._on_preview_toggled)
+        self.spin_start.valueChanged.connect(self.on_start_changed)
+        self.chk_preview.toggled.connect(self.on_preview_toggled)
         self.btn_undo.clicked.connect(self.undo_last)
-        self.btn_reset.clicked.connect(self.reset_points)
+        self.btn_reset.clicked.connect(self.reset_numbers)
 
-        self.lbl.clicked.connect(self._on_image_clicked)
-        self.lbl.rightClicked.connect(self._on_right_click)
-        self.lbl.hovered.connect(self._on_hover)
+        # Zkratky (standardní klávesy → na macOS = ⌘Z/⌘S)
+        QShortcut(QKeySequence(QKeySequence.StandardKey.Undo), self, activated=self.undo_last)
+        QShortcut(QKeySequence(QKeySequence.StandardKey.Save), self, activated=self.save_image)
+        
+    def _get_open_filename(self, caption: str, start_dir: str, filter_str: str) -> str:
+        # macOS focus fix: vlastní dialog, ApplicationModal, nenativní
+        dlg = QFileDialog(self.window(), caption, start_dir, filter_str)
+        dlg.setFileMode(QFileDialog.FileMode.ExistingFile)
+        dlg.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+        dlg.setWindowModality(Qt.WindowModality.ApplicationModal)
+        if dlg.exec() == QFileDialog.DialogCode.Accepted:
+            files = dlg.selectedFiles()
+            return files[0] if files else ""
+        return ""
+    
+    def _get_save_filename(self, caption: str, start_dir: str, filter_str: str) -> str:
+        dlg = QFileDialog(self.window(), caption, start_dir, filter_str)
+        dlg.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dlg.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+        dlg.setWindowModality(Qt.WindowModality.ApplicationModal)
+        if dlg.exec() == QFileDialog.DialogCode.Accepted:
+            files = dlg.selectedFiles()
+            return files[0] if files else ""
+        return ""
 
-    # ----- actions -----
-    def has_image(self) -> bool: return self._img_bgr is not None
-
+    # ---------- Uživatelské akce ----------
     def open_image(self) -> None:
-        start = str(self._last_dir)
-        fname, _ = QFileDialog.getOpenFileName(self, "Otevřít obrázek", start, "Obrázky (*.png *.jpg *.jpeg *.bmp *.tif *.tiff)")
-        if not fname: return
+        fname = self._get_open_filename(
+            caption="Otevřít obrázek",
+            start_dir=str(self.last_dir),
+            filter_str="Obrázky (*.png *.jpg *.jpeg *.bmp *.tif *.tiff)"
+        )
+        if not fname:
+            return
         img = cv2.imread(fname, cv2.IMREAD_COLOR)
         if img is None:
             QMessageBox.critical(self, "Chyba", "Nelze načíst obrázek.")
             return
-        self._img_bgr = img
-        self._points.clear()
-        self._set_points_enabled(False)
-        self._last_dir = Path(fname).parent
-        self._render_and_show()
+        self.image_bgr = img
+        self.points.clear()
+        self.hover_pos_label = None
+        self.last_dir = Path(fname).parent
+        self._update_buttons()
+        self.render()
 
     def save_image(self) -> None:
-        if not self.has_image(): return
-        out = self._render_image(with_numbers=True)
-        start = str(self._last_dir)
-        fname, _ = QFileDialog.getSaveFileName(self, "Uložit výsledek", start, "PNG (*.png);;JPEG (*.jpg *.jpeg)")
-        if not fname: return
+        if self.image_bgr is None:
+            return
+        out = self._render_image(draw_preview=False)  # finální bez preview čísla
+        fname = self._get_save_filename(
+            caption="Uložit výsledek",
+            start_dir=str(self.last_dir),
+            filter_str="PNG (*.png);;JPEG (*.jpg *.jpeg)"
+        )
+        if not fname:
+            return
         ok = cv2.imwrite(fname, out)
-        if ok: QMessageBox.information(self, "Uloženo", "Obrázek byl uložen.")
-        else: QMessageBox.critical(self, "Chyba", "Ukládání selhalo.")
-
-    def _on_start_changed(self, val: int) -> None:
-        self._start_num = val; self._render_and_show()
-
-    def _on_preview_toggled(self, on: bool) -> None:
-        self._preview = on; self._render_and_show()
+        if ok:
+            QMessageBox.information(self, "Uloženo", "Obrázek byl uložen.")
+        else:
+            QMessageBox.critical(self, "Chyba", "Ukládání selhalo.")
 
     def undo_last(self) -> None:
-        if self._points:
-            self._points.pop()
-            self._set_points_enabled(bool(self._points))
-            self._render_and_show()
+        if self.points:
+            self.points.pop()
+            self._update_buttons()
+            self.render()
 
-    def reset_points(self) -> None:
-        self._points.clear(); self._set_points_enabled(False); self._render_and_show()
+    def reset_numbers(self) -> None:
+        self.points.clear()
+        self._update_buttons()
+        self.render()
 
-    def _on_right_click(self, _pos: QPoint) -> None: self.undo_last()
+    def on_start_changed(self, val: int) -> None:
+        self.start_number = val
+        self.render()
 
-    def _on_image_clicked(self, pos: QPoint) -> None:
-        if not self.has_image(): return
-        x = int(max(0, min(pos.x(), self._img_bgr.shape[1] - 1)))
-        y = int(max(0, min(pos.y(), self._img_bgr.shape[0] - 1)))
-        self._points.append((x, y)); self._set_points_enabled(True); self._render_and_show()
+    def on_preview_toggled(self, on: bool) -> None:
+        self.show_preview = on
+        self.render()
 
-    def _on_hover(self, _pos: QPoint) -> None:
-        if self._preview: self._render_and_show()
+    # ---------- Label interakce ----------
+    def label_click(self, pos: QPoint) -> None:
+        if self.image_bgr is None:
+            return
+        mapped = self._map_label_to_image(pos)
+        if mapped is None:
+            return
+        x, y = mapped
+        self.points.append((x, y))
+        self._update_buttons()
+        self.render()
 
-    # ----- rendering -----
-    def _render_and_show(self) -> None:
-        img = self._render_image(with_numbers=self._preview)
-        self._show_image(img)
+    def label_hover(self, pos: QPoint) -> None:
+        self.hover_pos_label = pos if self.image_bgr is not None else None
+        if self.show_preview:
+            self.render()
 
-    def _render_image(self, with_numbers: bool) -> np.ndarray:
-        if self._img_bgr is None:
-            return np.zeros((480, 640, 3), dtype=np.uint8)
-        canvas = self._img_bgr.copy()
-        if with_numbers and self._points:
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            font_scale = max(0.5, min(canvas.shape[1], canvas.shape[0]) / 800.0)
-            thickness = max(1, int(round(font_scale * 2)))
-            for idx, (x, y) in enumerate(self._points, start=self._start_num):
-                self._put_text_outline(canvas, str(idx), (x, y), font, font_scale, thickness)
-        return canvas
-
-    @staticmethod
-    def _put_text_outline(img: np.ndarray, text: str, org: Tuple[int, int], font, font_scale: float, thickness: int) -> None:
-        cv2.putText(img, text, org, font, font_scale, (0, 0, 0), thickness + 2, cv2.LINE_AA)
-        cv2.putText(img, text, org, font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
-
-    def _show_image(self, bgr: np.ndarray) -> None:
-        rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+    # ---------- Render ----------
+    def render(self) -> None:
+        disp = self._render_display_image()
+        if disp is None:
+            # prázdné plátno
+            disp = np.zeros((480, 640, 3), dtype=np.uint8)
+        rgb = cv2.cvtColor(disp, cv2.COLOR_BGR2RGB)
         h, w = rgb.shape[:2]
         qimg = QImage(rgb.data, w, h, rgb.strides[0], QImage.Format.Format_RGB888)
-        pix = QPixmap.fromImage(qimg.copy())
-        self.lbl.setPixmap(pix); self.lbl.resize(pix.size())
+        self.label.setPixmap(QPixmap.fromImage(qimg.copy()))
 
-    def _set_points_enabled(self, enabled: bool) -> None:
-        self.btn_save.setEnabled(self.has_image())
-        self.btn_undo.setEnabled(enabled)
-        self.btn_reset.setEnabled(enabled)
+    def _render_display_image(self) -> Optional[np.ndarray]:
+        if self.image_bgr is None:
+            return None
+        # vykresli čísla na kopii originálu (v originální velikosti)
+        composed = self._render_image(draw_preview=True)
+        # spočti škálování do labelu (fit + centrování)
+        target_w = max(1, self.label.width())
+        target_h = max(1, self.label.height())
+        img_h, img_w = composed.shape[:2]
+        scale = min(target_w / img_w, target_h / img_h)
+        new_w, new_h = max(1, int(img_w * scale)), max(1, int(img_h * scale))
+        resized = cv2.resize(composed, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        # Vlož do „letterboxu“ velikosti labelu (černé pozadí)
+        out = np.zeros((target_h, target_w, 3), dtype=np.uint8)
+        off_x = (target_w - new_w) // 2
+        off_y = (target_h - new_h) // 2
+        out[off_y:off_y+new_h, off_x:off_x+new_w] = resized
+        # Ulož aktuální geometrii pro mapování kliků
+        self._geom = (scale, off_x, off_y, img_w, img_h)
+        return out
 
+    def _render_image(self, draw_preview: bool) -> np.ndarray:
+        """
+        Vykreslí čísla do kopie originálu; pokud draw_preview=True a je hover, vykreslí i 'další' číslo
+        na hover pozici. Kreslení je zarovnáno tak, aby STŘED textu byl přesně v bodě (kurzoru/kliku).
+        """
+        canvas = self.image_bgr.copy()
+        font = cv2.FONT_HERSHEY_SIMPLEX
+    
+        n = self.start_number
+        for (x, y) in self.points:
+            self._put_centered_text_with_outline(canvas, str(n), (x, y), font, self.font_scale, self.font_thickness)
+            n += 1
+    
+        if draw_preview and self.show_preview and self.hover_pos_label is not None:
+            mapped = self._map_label_to_image(self.hover_pos_label)
+            if mapped is not None:
+                self._put_centered_text_with_outline(canvas, str(n), mapped, font, self.font_scale, self.font_thickness)
+    
+        return canvas
 
-class FourLeafCounterDialog(QDialog):
-    """Nemodální okno s počítadlem; zavírání ⌘W (QKeySequence.Close)."""
+    
+    def _put_centered_text_with_outline(self, img: np.ndarray, text: str, center: Tuple[int, int],
+                                        font, scale: float, thickness: int) -> None:
+        """
+        Nakreslí text tak, aby jeho STŘED byl v 'center'.
+        OpenCV kreslí od baseline-levého rohu → přepočet přes getTextSize.
+        """
+        (w, h), baseline = cv2.getTextSize(text, font, scale, thickness)
+        cx, cy = int(center[0]), int(center[1])
+        org_x = int(round(cx - w / 2.0))
+        org_y = int(round(cy + h / 2.0))  # baseline = střed + h/2
+    
+        # černý obrys (silnější)
+        cv2.putText(img, text, (org_x, org_y), font, scale, (0, 0, 0), thickness + 4, cv2.LINE_AA)
+        # bílý text
+        cv2.putText(img, text, (org_x, org_y), font, scale, (255, 255, 255), thickness, cv2.LINE_AA)
+        
+    @staticmethod
+    def _put_text_with_outline(img: np.ndarray, text: str, org: Tuple[int, int], font, scale: float, thickness: int) -> None:
+        x, y = int(org[0]), int(org[1])
+        # černý obrys (silnější)
+        cv2.putText(img, text, (x, y), font, scale, (0, 0, 0), thickness + 4, cv2.LINE_AA)
+        # bílý text
+        cv2.putText(img, text, (x, y), font, scale, (255, 255, 255), thickness, cv2.LINE_AA)
+
+    def _map_label_to_image(self, pos: QPoint) -> Optional[Tuple[int, int]]:
+        """Převod souřadnic v QLabel → na originální obrázek (bereme v úvahu scale + odsazení při centrování)."""
+        if self.image_bgr is None or not hasattr(self, "_geom"):
+            return None
+        scale, off_x, off_y, img_w, img_h = self._geom
+        x = (pos.x() - off_x) / max(1e-6, scale)
+        y = (pos.y() - off_y) / max(1e-6, scale)
+        if x < 0 or y < 0 or x >= img_w or y >= img_h:
+            return None
+        return (int(round(x)), int(round(y)))
+
+    # Pomocné
+    def _update_buttons(self) -> None:
+        has = self.image_bgr is not None
+        self.btn_save.setEnabled(has)
+        self.btn_undo.setEnabled(bool(self.points))
+        self.btn_reset.setEnabled(bool(self.points))
+
+    def resizeEvent(self, ev) -> None:
+        super().resizeEvent(ev)
+        # Při změně velikosti přerenderuj (kvůli scale/offset)
+        self.render()
+
+class FourLeafCounterDock(QDockWidget):
+    """Dock s počítadlem; zavírání ⌘W (QKeySequence.Close)."""
     def __init__(self, parent=None) -> None:
-        super().__init__(parent)
-        self.setWindowTitle("Počítadlo čtyřlístků")
-        lay = QVBoxLayout(self)
+        super().__init__("Počítadlo čtyřlístků", parent)
+        self.setObjectName("fourLeafCounterDock")
+        self.setAllowedAreas(
+            Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea | Qt.BottomDockWidgetArea | Qt.TopDockWidgetArea
+        )
         self.widget = FourLeafCounterWidget(self)
-        lay.addWidget(self.widget)
+        self.setWidget(self.widget)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         QShortcut(QKeySequence(QKeySequence.StandardKey.Close), self, activated=self.close)
+        
 # === HLAVNÍ OKNO A ZÁKLADNÍ UI ===
 class MainWindow(QMainWindow):
     """Hlavní okno aplikace"""
@@ -1321,32 +1454,29 @@ class MainWindow(QMainWindow):
     
         except Exception as e:
             print(f"[FourLeaf] Inject UI failed: {e}")
-    
+
     def open_fourleaf_counter_window(self) -> None:
-        """Otevře nemodální okno Počítadla; pokud už běží, vyzvedne ho."""
+        """Otevře/zviditelní dock 'Počítadlo čtyřlístků' — bezpečně i po zavření."""
         try:
-            win = getattr(self, "_fourleaf_win", None)
-            if win is not None and win.isVisible():
+            dock = getattr(self, "_fourleaf_dock", None)
+            # validace životnosti (vyhne se "Internal C++ object ... already deleted")
+            if dock is None or not Shiboken.isValid(dock):
+                dock = FourLeafCounterDock(self)
+                self._fourleaf_dock = dock
                 try:
-                    win.raise_(); win.activateWindow()
+                    dock.destroyed.connect(lambda *_: setattr(self, "_fourleaf_dock", None))
                 except Exception:
                     pass
-                return
+                self.addDockWidget(Qt.RightDockWidgetArea, dock)
     
-            dlg = FourLeafCounterDialog(self)
-            self._fourleaf_win = dlg
+            dock.show()
             try:
-                dlg.destroyed.connect(lambda *_: setattr(self, "_fourleaf_win", None))
+                dock.raise_(); dock.activateWindow()
             except Exception:
                 pass
     
-            dlg.show()
-            try:
-                dlg.raise_(); dlg.activateWindow()
-            except Exception:
-                pass
         except Exception as e:
-            print(f"[FourLeaf] Nelze otevřít okno: {e}")
+            print(f"[FourLeaf] Nelze otevřít dock: {e}")
             
     from PySide6.QtCore import QTimer
     
