@@ -669,6 +669,9 @@ class ImageViewerDialog(QDialog):
         else:  # Linux
             subprocess.Popen(['xdg-open', folder_path])
 
+from PySide6.QtCore import Qt, QEvent, QPointF
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QComboBox, QSpinBox, QMenu
+
 class PolygonCanvas(QWidget):
     """
     Kreslící widget nad bitmapou s interaktivním polygonem s podporou zoomu, přidávání/mazání bodů,
@@ -707,6 +710,253 @@ class PolygonCanvas(QWidget):
         self.setFixedSize(int(round(w)), int(round(h)))
         
         self._edge_label_pt = 5
+
+    # ===== ŠTĚTEC: init po prvním zobrazení =====
+    def showEvent(self, ev):
+        if not hasattr(self, "_brush_inited"):
+            self._brush_inited = True
+            self._init_brush_state()
+        try:
+            super().showEvent(ev)
+        except Exception:
+            pass
+    
+    def _init_brush_state(self):
+        """Výchozí stav pro brush mód – bez zásahu do původních módů."""
+        self.brush_mode = False
+        if not hasattr(self, "brush_radius"):
+            self.brush_radius = 20
+        self._paint_mask = None
+        try:
+            self.removeEventFilter(self)
+        except Exception:
+            pass
+    
+    # ===== ŠTĚTEC: veřejné API =====
+    def set_brush_mode(self, enabled: bool):
+        """
+        Zap/vyp 'Vymalovat (štětcem)'.
+        V brush módu je kreslení NEZÁVISLÉ na původním polygonu (žádné seedování).
+        Po zapnutí: skryj body (self.points = []) a začni s čistou maskou.
+        """
+        from PySide6.QtCore import Qt
+    
+        enabled = bool(enabled)
+        self.brush_mode = enabled
+    
+        if enabled:
+            # vypni ostatní módy (bez mazání jejich stavů)
+            setattr(self, 'add_mode', False)
+            setattr(self, 'delete_mode', False)
+            setattr(self, 'move_mode', False)
+    
+            # žádné seedování ze starých bodů – start z prázdna
+            self.points = []
+            self._ensure_paint_mask(init_from_polygon=False)
+    
+            # kurzor – kolečko podle radiusu a v barvě polygonu
+            self._update_brush_cursor()
+    
+            # fokus + event filter
+            try:
+                self.setFocusPolicy(Qt.StrongFocus)
+                self.setFocus()
+                self.installEventFilter(self)
+            except Exception:
+                pass
+        else:
+            # vypni event filter
+            try:
+                self.removeEventFilter(self)
+            except Exception:
+                pass
+    
+            # kurzor zpět podle módů
+            try:
+                if getattr(self, 'move_mode', False):
+                    self.setCursor(Qt.OpenHandCursor)
+                elif getattr(self, 'add_mode', False) or getattr(self, 'delete_mode', False):
+                    self.setCursor(Qt.CrossCursor)
+                else:
+                    self.unsetCursor()
+            except Exception:
+                pass
+    
+        self.update()
+    
+    
+    def set_brush_radius(self, px: int):
+        """Poloměr štětce (1–512) + aktualizace kurzoru, je-li štětec aktivní."""
+        self.brush_radius = int(max(1, min(512, px)))
+        if getattr(self, "brush_mode", False):
+            self._update_brush_cursor()
+        self.update()
+    
+    
+    def clear_paint(self):
+        """
+        Vymaže tahy štětcem i aktuální body polygonu.
+        DŮLEŽITÉ: neseeduje se ze starých bodů → nic „nevyskočí zpět“.
+        """
+        # zruš body i masku; masku vytvoříme až při dalším tahu
+        self.points = []
+        self._paint_mask = None
+        self.update()
+    
+    
+    def _ensure_paint_mask(self, init_from_polygon: bool = False):
+        """
+        Inicializuje masku pro malování.
+        Defaultně NEseeduje z polygonu (keep False); kdyby bylo True, vyplní masku body polygonu.
+        """
+        import numpy as np, cv2
+        h = int(self._pixmap.height())
+        w = int(self._pixmap.width())
+        if getattr(self, "_paint_mask", None) is None or self._paint_mask.shape[:2] != (h, w):
+            self._paint_mask = np.zeros((h, w), dtype=np.uint8)
+    
+        if init_from_polygon:
+            pts = getattr(self, 'points', None) or []
+            if len(pts) >= 3:
+                poly = np.array([[int(p.x()), int(p.y())] for p in pts], dtype=np.int32)
+                try:
+                    cv2.fillPoly(self._paint_mask, [poly], 255)
+                except Exception:
+                    pass
+    
+        if not hasattr(self, 'brush_radius'):
+            self.brush_radius = 5  # výchozí 5 px (v3.2)
+    
+    
+    def _update_brush_cursor(self):
+        """Kruhový kurzor s průměrem dle brush_radius; barva = barva polygonu; hotspot uprostřed."""
+        try:
+            from PySide6.QtCore import Qt
+            from PySide6.QtGui import QPixmap, QPainter, QPen, QColor, QCursor
+            r = int(max(1, getattr(self, "brush_radius", 5)))
+            d = 2 * r + 3
+            pm = QPixmap(d, d)
+            pm.fill(Qt.transparent)
+    
+            # barva z polygonu; očekává se např. '#RRGGBB'
+            poly_color_hex = None
+            for attr in ("color", "color_hex", "_color_hex"):
+                if hasattr(self, attr):
+                    poly_color_hex = getattr(self, attr)
+                    break
+            qcol = QColor(poly_color_hex) if poly_color_hex else QColor(255, 255, 255)
+    
+            p = QPainter(pm)
+            p.setRenderHint(QPainter.Antialiasing, True)
+            pen = QPen(qcol)
+            pen.setWidth(1)
+            pen.setColor(QColor(qcol.red(), qcol.green(), qcol.blue(), 230))
+            p.setPen(pen)
+            p.drawEllipse(1, 1, d - 2, d - 2)
+            p.end()
+            self.setCursor(QCursor(pm, r + 1, r + 1))
+        except Exception:
+            from PySide6.QtCore import Qt
+            self.setCursor(Qt.CrossCursor)
+    
+    # ===== ŠTĚTEC: event filter – bez zásahu do tvých mouse*Event =====
+    def eventFilter(self, obj, event):
+        try:
+            if obj is self and self.brush_mode:
+                et = event.type()
+                pos_raw = event.position() if hasattr(event, "position") else (event.pos() if hasattr(event, "pos") else None)
+    
+                if et == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
+                    if pos_raw is not None:
+                        self._last_paint_logical = self._to_logical(pos_raw)
+                        self._paint_at(self._last_paint_logical)
+                    return True
+    
+                if et == QEvent.MouseMove and (event.buttons() & Qt.LeftButton):
+                    if pos_raw is not None:
+                        lp = self._to_logical(pos_raw)
+                        if getattr(self, "_last_paint_logical", None) is None:
+                            self._paint_at(lp)
+                        else:
+                            self._paint_line(self._last_paint_logical, lp)
+                        self._last_paint_logical = lp
+                    return True
+    
+                if et == QEvent.MouseButtonRelease and event.button() == Qt.LeftButton:
+                    self._last_paint_logical = None
+                    return True
+    
+                if et == QEvent.KeyPress:
+                    k = event.key()
+                    if k in (ord('['), ord('-')):
+                        self.set_brush_radius(self.brush_radius - 2); return True
+                    if k in (ord(']'), ord('='), ord('+')):
+                        self.set_brush_radius(self.brush_radius + 2); return True
+                    if k == ord('C'):
+                        self.clear_paint(); return True
+            return super().eventFilter(obj, event)
+        except Exception:
+            return False
+    
+    # ===== ŠTĚTEC: volitelné kontextové menu (pravý klik) =====
+    def contextMenuEvent(self, ev):
+        try:
+            menu = QMenu(self)
+            act_on = menu.addAction("Režim: Vymalovat (štětcem)"); act_on.setCheckable(True)
+            act_on.setChecked(bool(getattr(self, "brush_mode", False)))
+            menu.addSeparator()
+            menu.addAction("Štětec -  ([ / -)")
+            menu.addAction("Štětec +  (] / = / +)")
+            menu.addSeparator()
+            menu.addAction("Vymazat tahy (C)")
+            a = menu.exec(ev.globalPos())
+            if not a: return
+            t = a.text()
+            if "Režim" in t:
+                self.set_brush_mode(not self.brush_mode)
+            elif "Štětec -" in t:
+                self.set_brush_radius(self.brush_radius - 2)
+            elif "Štětec +" in t:
+                self.set_brush_radius(self.brush_radius + 2)
+            elif "Vymazat tahy" in t:
+                self.clear_paint()
+        except Exception:
+            pass
+    
+    # ===== ŠTĚTEC: vnitřnosti =====
+    
+    def _paint_at(self, p: QPointF):
+        import cv2
+        self._ensure_paint_mask()
+        r = int(self.brush_radius)
+        x, y = int(round(p.x())), int(round(p.y()))
+        cv2.circle(self._paint_mask, (x, y), r, 255, -1, lineType=cv2.LINE_AA)
+        self._update_polygon_from_mask()
+    
+    def _paint_line(self, p0: QPointF, p1: QPointF):
+        import cv2
+        self._ensure_paint_mask()
+        r = int(self.brush_radius)
+        x0, y0 = int(round(p0.x())), int(round(p0.y()))
+        x1, y1 = int(round(p1.x())), int(round(p1.y()))
+        cv2.line(self._paint_mask, (x0, y0), (x1, y1), 255, thickness=max(1, 2 * r), lineType=cv2.LINE_AA)
+        self._update_polygon_from_mask()
+    
+    def _update_polygon_from_mask(self):
+        """Najde největší komponentu v masce, zjednoduší a uloží do self.points."""
+        import cv2, numpy as np
+        try:
+            contours, _ = cv2.findContours(self._paint_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if not contours:
+                return
+            cnt = max(contours, key=cv2.contourArea)
+            peri = float(cv2.arcLength(cnt, True))
+            eps = max(1.5, 0.002 * peri)
+            approx = cv2.approxPolyDP(cnt, eps, True)
+            self.points = [QPointF(float(x), float(y)) for [[x, y]] in approx]
+            self.update()
+        except Exception:
+            pass
         
     # --- POMOCNÍCI (PŘIDEJ DO TŘÍDY PolygonCanvas) --------------------------------
     
@@ -1399,6 +1649,9 @@ class PolygonEditorDialog(QDialog):
         modes_gl.addWidget(self.chk_del_mode, 0, 1)
         modes_gl.addWidget(self.chk_move_mode, 0, 2)
         controls_bar.addWidget(modes_group, 0)
+        
+        #self.__ensure_brush_panel()
+        self._inject_brush_controls(modes_gl, controls_bar)
     
         # Zoom
         zoom_group = QGroupBox("Zoom", self)
@@ -1535,6 +1788,164 @@ class PolygonEditorDialog(QDialog):
         # Smazání polygonu (Cmd/Ctrl+Backspace)
         clear_shortcut = QShortcut(QKeySequence("Ctrl+Backspace"), self)
         clear_shortcut.activated.connect(self._on_clear_polygon)
+        
+    def _inject_brush_controls(self, modes_gl, controls_bar):
+        from PySide6.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QCheckBox, QSpinBox
+        self.chk_brush_mode = QCheckBox('Vymalovat (štětcem)', self)
+        self.chk_brush_mode.setChecked(False)
+        self.chk_brush_mode.toggled.connect(self._on_brush_mode_toggled)
+        modes_gl.addWidget(self.chk_brush_mode, 0, 3)
+    
+        brush_group = QGroupBox("Štětec", self)
+        brush_hl = QHBoxLayout(brush_group)
+        lbl = QLabel("Velikost:", brush_group)
+        self.spin_brush_radius = QSpinBox(brush_group)
+        self.spin_brush_radius.setRange(1, 512)
+        try:
+            init_val = int(getattr(self.canvas, "brush_radius", 5))
+        except Exception:
+            init_val = 5
+        self.spin_brush_radius.setValue(init_val)
+        self.spin_brush_radius.setEnabled(False)
+        self.spin_brush_radius.valueChanged.connect(self._on_brush_value_changed)
+    
+        brush_hl.addWidget(lbl)
+        brush_hl.addWidget(self.spin_brush_radius)
+        controls_bar.addWidget(brush_group, 0)
+    
+        # exkluzivita – zapnutí jiného režimu vypne štětec
+        self.chk_add_mode.toggled.connect(lambda on: on and self._disable_brush_due_to_other_mode())
+        self.chk_del_mode.toggled.connect(lambda on: on and self._disable_brush_due_to_other_mode())
+        self.chk_move_mode.toggled.connect(lambda on: on and self._disable_brush_due_to_other_mode())
+    
+    def _on_brush_mode_toggled(self, checked: bool):
+        if checked:
+            try:
+                self.chk_add_mode.blockSignals(True); self.chk_del_mode.blockSignals(True); self.chk_move_mode.blockSignals(True)
+                self.chk_add_mode.setChecked(False);  self.chk_del_mode.setChecked(False);  self.chk_move_mode.setChecked(False)
+            finally:
+                self.chk_add_mode.blockSignals(False); self.chk_del_mode.blockSignals(False); self.chk_move_mode.blockSignals(False)
+    
+        if hasattr(self.canvas, "set_brush_mode"):
+            self.canvas.set_brush_mode(bool(checked))
+        if hasattr(self, "spin_brush_radius"):
+            self.spin_brush_radius.setEnabled(bool(checked))
+        try:
+            self.canvas.setFocus(); self.canvas.update()
+        except Exception:
+            pass
+    
+    def _on_brush_value_changed(self, val: int):
+        try:
+            if hasattr(self.canvas, "set_brush_radius"):
+                self.canvas.set_brush_radius(int(val))
+            if getattr(self.canvas, "brush_mode", False) and hasattr(self.canvas, "_update_brush_cursor"):
+                self.canvas._update_brush_cursor()
+            self.canvas.update()
+        except Exception as e:
+            print("[PolygonEditorDialog] brush size:", e)
+    
+    def _disable_brush_due_to_other_mode(self):
+        try:
+            if hasattr(self, "chk_brush_mode"):
+                self.chk_brush_mode.blockSignals(True)
+                self.chk_brush_mode.setChecked(False)
+                self.chk_brush_mode.blockSignals(False)
+            if hasattr(self, "spin_brush_radius"):
+                self.spin_brush_radius.setEnabled(False)
+            if hasattr(self.canvas, "set_brush_mode"):
+                self.canvas.set_brush_mode(False)
+            self.canvas.update()
+        except Exception as e:
+            print("[PolygonEditorDialog] disable brush:", e)
+
+    def __ensure_brush_panel(self):
+        """Vloží (nebo obnoví) horní panel s režimy (vč. štětce) a velikostí štětce. Panel je vždy jen jeden."""
+        # Odstraň starý, pokud existuje
+        old = self.findChild(QWidget, "polygonBrushBar")
+        if old is not None:
+            try:
+                old.setParent(None)
+                old.deleteLater()
+            except Exception:
+                pass
+    
+        # Vytvoř nový panel
+        bar = QWidget(self)
+        bar.setObjectName("polygonBrushBar")
+        row = QHBoxLayout(bar); row.setContentsMargins(0, 0, 0, 0); row.setSpacing(8)
+    
+        lbl_mode = QLabel("Režim:", bar)
+        cb = QComboBox(bar)
+        cb.addItems(["Přidat body", "Mazat body", "Posouvat", "Vymalovat (štětcem)"])
+    
+        lbl_sz = QLabel("Štětec:", bar)
+        sb = QSpinBox(bar); sb.setRange(1, 512)
+        # výchozí hodnota z canvasu (nebo 20)
+        sb.setValue(int(getattr(self.canvas, "brush_radius", 20)))
+        sb.setEnabled(bool(getattr(self.canvas, "brush_mode", False)))
+    
+        row.addWidget(lbl_mode); row.addWidget(cb)
+        row.addSpacing(12)
+        row.addWidget(lbl_sz); row.addWidget(sb)
+        row.addStretch(1)
+    
+        # Umísti panel nahoru do hlavního layoutu dialogu
+        lay = self.layout()
+        if lay is not None:
+            try:
+                lay.insertWidget(0, bar)
+            except Exception:
+                lay.addWidget(bar)
+        else:
+            bar.setParent(self); bar.move(0, 0); bar.show()
+    
+        # Ulož reference a signály
+        self._cb_mode = cb
+        self._sb_brush = sb
+    
+        cb.currentIndexChanged.connect(self._on_mode_combo_changed)
+        sb.valueChanged.connect(self._on_brush_value_changed)
+    
+        # Počáteční sync podle canvasu
+        idx = 0
+        if bool(getattr(self.canvas, "delete_mode", False)):
+            idx = 1
+        elif bool(getattr(self.canvas, "move_mode", False)):
+            idx = 2
+        elif bool(getattr(self.canvas, "brush_mode", False)):
+            idx = 3; sb.setEnabled(True)
+        cb.setCurrentIndex(idx)
+    
+    def _on_mode_combo_changed(self, idx: int):
+        """Přepínač režimů přes ComboBox – volá veřejné API canvasu. Zajišťuje exkluzivitu režimů."""
+        try:
+            # Nejprve vypni vše
+            if hasattr(self.canvas, "set_add_mode"):    self.canvas.set_add_mode(False)
+            if hasattr(self.canvas, "set_delete_mode"): self.canvas.set_delete_mode(False)
+            if hasattr(self.canvas, "set_move_mode"):   self.canvas.set_move_mode(False)
+            if hasattr(self.canvas, "set_brush_mode"):  self.canvas.set_brush_mode(False)
+    
+            # Zapni jen vybraný
+            if   idx == 0 and hasattr(self.canvas, "set_add_mode"):   self.canvas.set_add_mode(True)
+            elif idx == 1 and hasattr(self.canvas, "set_delete_mode"):self.canvas.set_delete_mode(True)
+            elif idx == 2 and hasattr(self.canvas, "set_move_mode"):  self.canvas.set_move_mode(True)
+            elif idx == 3 and hasattr(self.canvas, "set_brush_mode"): self.canvas.set_brush_mode(True)
+    
+            # Štětec: povolit/zakázat spinbox
+            if hasattr(self, "_sb_brush") and self._sb_brush:
+                self._sb_brush.setEnabled(idx == 3)
+    
+            # Fokus do canvasu a redraw
+            try:
+                self.canvas.setFocus()
+                self.canvas.update()
+            except Exception:
+                pass
+        except Exception as e:
+            print("[PolygonEditorDialog] _on_mode_combo_changed:", e)
+    
+
         
     def _on_deselect_all_overlays(self):
         """
@@ -1873,17 +2284,42 @@ class PolygonEditorDialog(QDialog):
             else: save_without_polygon(self.image_path)
             self.accept()
         except Exception as e: from PySide6.QtWidgets import QMessageBox; QMessageBox.critical(self, 'Chyba při ukládání', f'{e}')
-    def _on_reset_polygon(self): self._reload_from_metadata()
-    def _on_clear_polygon(self):
-        from PySide6.QtWidgets import QMessageBox
-        if QMessageBox.question(self, "Vymazat polygon", "Opravdu chcete vymazat polygon?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes:
-            try:
-                save_without_polygon(self.image_path)
+
+    def _on_reset_polygon(self):
+        """
+        Reset polygonu.
+        - Mimo štětec: zachovej původní chování (pokud máš logiku na 'původní body').
+        - Ve štětci: VYNULUJ masku i body (žádné staré tvary se nevrátí).
+        """
+        try:
+            if hasattr(self.canvas, "brush_mode") and self.canvas.brush_mode:
+                # režim štětec: prázdno
                 self.canvas.points = []
+                self.canvas._paint_mask = None
                 self.canvas.update()
-                QMessageBox.information(self, "Hotovo", "Polygon byl vymazán z metadat.")
-            except Exception as e:
-                QMessageBox.critical(self, "Chyba", f"Nepodařilo se vymazat polygon:\n{e}")
+                return
+    
+            # původní reset (pokud máš uložené počáteční body):
+            if hasattr(self, "_initial_points") and self._initial_points:
+                self.canvas.points = list(self._initial_points)
+            else:
+                # fallback: prázdno
+                self.canvas.points = []
+            # a vždy zruš i masku, aby nic nevyskočilo zpět
+            self.canvas._paint_mask = None
+            self.canvas.update()
+        except Exception as e:
+            print("[PolygonEditorDialog] reset polygon:", e)    
+
+    def _on_clear_polygon(self):
+        """Vymazání polygonu – vždy vynuluje body i masku (funguje i ve štětci)."""
+        try:
+            self.canvas.points = []
+            self.canvas._paint_mask = None
+            self.canvas.update()
+        except Exception as e:
+            print("[PolygonEditorDialog] clear polygon:", e)
+            
     def _find_unsorted_folder(self, start: Path) -> Path:
         # ... (tato metoda zůstává beze změny)
         try:
