@@ -733,10 +733,10 @@ class PolygonCanvas(QWidget):
             pass
     
     # ===== ŠTĚTEC: veřejné API =====
-def set_brush_mode(self, enabled: bool):
-    """
-    Zap/vyp 'Vymalovat (štětcem)'.
-    V brush módu je kreslení NEZÁVISLÉ na původním polygonu (žádné seedování).
+    def set_brush_mode(self, enabled: bool):
+        """
+        Zap/vyp 'Vymalovat (štětcem)'.
+        V brush módu je kreslení NEZÁVISLÉ na původním polygonu (žádné seedování).
         Po zapnutí: skryj body (self.points = []) a začni s čistou maskou.
         """
         from PySide6.QtCore import Qt
