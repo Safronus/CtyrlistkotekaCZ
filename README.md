@@ -2,7 +2,7 @@
 
 Aplikace v Pythonu s GUI (PySide6) pro správu sbírky čtyřlístků.
 
-**Verze:** 3.1a  
+**Verze:** 3.1c  
 **Datum vydání:** 2025-10-28
 
 > **Ochrana soukromí:** README neobsahuje osobní údaje, GPS souřadnice ani jména. Konfiguraci v `settings/*.json` neuvádíme.
@@ -15,16 +15,17 @@ Aplikace v Pythonu s GUI (PySide6) pro správu sbírky čtyřlístků.
 - Generování PDF (ReportLab).
 - Konfigurace v `settings/` (JSON).
 
-### Nové / upravené ve verzi 3.1a
-- **Počítadlo čtyřlístků** — interaktivní číslování bodů v obrázku (OpenCV), startovní číslo, živý náhled, **Undo/Reset**, uložení.
-- **Umístění tlačítka:** tlačítko **🍀 Počítadlo** je přidáno **na horní toolbar „Monitoring“** (nikoliv do menu).  
-  Pokud je toolbar skrytý, je po startu okna zviditelněn.
-- **Zavírání podokna zkratkou:** **⌘W (Cmd+W)**.
-- **Výchozí složka dialogů:**  
-  `/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Čtyřlístky na sušičce/`
+### Nové / opravené ve verzi 3.1c
+- **Počítadlo čtyřlístků** (podokno): chování **přesně podle `PočítadloČtyřlístků.py`**:
+  - levý klik přidá číslo, **pravý klik = Undo**,
+  - **náhled dalšího čísla pod kurzorem** (zap/vyp), startovní číslo **15140**,
+  - měřítko zobrazení s přepočtem kliků → **správné souřadnice na originálním obrázku**,
+  - **klávesy:** **Undo** (⌘Z), **Uložit** (⌘S), **Zavřít podokno** (⌘W),
+  - výchozí složka dialogů:  
+    `/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Čtyřlístky na sušičce/`
 
 **Ovládání:**  
-V hlavním okně klikni na **🍀 Počítadlo** v **toolbaru „Monitoring“**. Otevře se samostatné nemodální okno s počítadlem; zavření **Cmd+W**.
+V hlavním okně klikni na **🍀 Počítadlo** v toolbaru „Monitoring“. Otevře se **podokno** (dock) s funkcionalitou. Zavření podokna: **Cmd+W**.
 
 ---
 
@@ -68,24 +69,16 @@ shapely==2.0.4
 shiboken6==6.7.3
 ```
 
-> `requirements.txt` obsahuje stejné položky. Pro reprodukovatelnost zvaž `pip-tools`.
-
----
-
-## Architektura & moduly
-- `main_window.py` — hlavní okno; **toolbar „Monitoring“**; tlačítko **🍀 Počítadlo**; otevření nemodálního okna s počítadlem (Cmd+W).
-- `core/` — logika a zpracování dat/obrazů.
-- `gui/` — UI komponenty (PySide6 widgety/okna).
-- `pdf_generator.py` — export/generování PDF.
-- `settings/` — konfigurační JSON (nedávejte do repa citlivá data; preferujte `settings.example.json`).
-
 ---
 
 ## Changelog
+- **v3.1c – 2025-10-28**
+  - Reimplementováno chování „Počítadlo čtyřlístků“ 1:1 podle skriptu (`levý/pravý klik`, náhled, start 15140, ⌘Z/⌘S/⌘W, scale-to-fit mapping).
+- **v3.1b – 2025-10-28**  
+  - (repo housekeeping, bump verze)  
 - **v3.1a – 2025-10-28**
-  - Oprava integrace tlačítka: přidáno na toolbar **„Monitoring“** + zviditelnění toolbaru po startu.
-  - Podokno počítadla zavíratelné **Cmd+W**.
+  - Tlačítko **🍀** na toolbaru „Monitoring“, podokno zavíratelné **Cmd+W**.
 - **v3.1 – 2025-10-28**
-  - Přidán nástroj **Počítadlo čtyřlístků** (OpenCV, start, náhled, Undo/Reset, uložení).
+  - Přidán nástroj **Počítadlo čtyřlístků**.
 - **v3.0 – 2025-10-28**
   - První zveřejnění projektu, přidán `README.md`, `.gitignore`, `requirements.txt`.
