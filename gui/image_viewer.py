@@ -733,10 +733,10 @@ class PolygonCanvas(QWidget):
             pass
     
     # ===== ŠTĚTEC: veřejné API =====
-    def set_brush_mode(self, enabled: bool):
-        """
-        Zap/vyp 'Vymalovat (štětcem)'.
-        V brush módu je kreslení NEZÁVISLÉ na původním polygonu (žádné seedování).
+def set_brush_mode(self, enabled: bool):
+    """
+    Zap/vyp 'Vymalovat (štětcem)'.
+    V brush módu je kreslení NEZÁVISLÉ na původním polygonu (žádné seedování).
         Po zapnutí: skryj body (self.points = []) a začni s čistou maskou.
         """
         from PySide6.QtCore import Qt
@@ -754,7 +754,11 @@ class PolygonCanvas(QWidget):
             self.points = []
             self._ensure_paint_mask(init_from_polygon=False)
     
-            # kurzor – kolečko podle radiusu a v barvě polygonu
+            # Fallback: pokud sem UI neposlalo radius předem, zajisti minimálně default 5 px
+            if not hasattr(self, "brush_radius"):
+                self.brush_radius = 5
+    
+            # kurzor – kolečko podle STÁVAJÍCÍHO radiusu (už může být poslán z UI)
             self._update_brush_cursor()
     
             # fokus + event filter
@@ -1819,6 +1823,8 @@ class PolygonEditorDialog(QDialog):
         self.chk_move_mode.toggled.connect(lambda on: on and self._disable_brush_due_to_other_mode())
     
     def _on_brush_mode_toggled(self, checked: bool):
+        """Zap/vyp štětec, exkluzivně s ostatními režimy. Při zapnutí nejdřív synchronizuje radius z UI, aby kurzor hned seděl."""
+        # Exkluzivita – když zapínám štětec, vypnu ostatní režimy (bez emisí kaskádních signálů)
         if checked:
             try:
                 self.chk_add_mode.blockSignals(True); self.chk_del_mode.blockSignals(True); self.chk_move_mode.blockSignals(True)
@@ -1826,10 +1832,27 @@ class PolygonEditorDialog(QDialog):
             finally:
                 self.chk_add_mode.blockSignals(False); self.chk_del_mode.blockSignals(False); self.chk_move_mode.blockSignals(False)
     
-        if hasattr(self.canvas, "set_brush_mode"):
-            self.canvas.set_brush_mode(bool(checked))
+            # 1) Nejprve nastav radius z UI do canvase (default 5 px), ať má kurzor správnou velikost od první chvíle
+            try:
+                if hasattr(self, "spin_brush_radius") and hasattr(self.canvas, "set_brush_radius"):
+                    self.canvas.set_brush_radius(int(self.spin_brush_radius.value()))
+            except Exception:
+                pass
+    
+            # 2) Teď teprve zapni brush mód (uvnitř si vyrobí kurzor podle aktuálního radius)
+            if hasattr(self.canvas, "set_brush_mode"):
+                self.canvas.set_brush_mode(True)
+    
+        else:
+            # Vypnutí štětce
+            if hasattr(self.canvas, "set_brush_mode"):
+                self.canvas.set_brush_mode(False)
+    
+        # UI: povolit/zakázat spinbox
         if hasattr(self, "spin_brush_radius"):
             self.spin_brush_radius.setEnabled(bool(checked))
+    
+        # Fokus a překreslení
         try:
             self.canvas.setFocus(); self.canvas.update()
         except Exception:

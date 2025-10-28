@@ -2,11 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # --- Version & Changelog ---
-__version__ = "3.1j"
+__version__ = "3.2a"
 __changelog__ = """
-v3.1j (2025-10-28)
-- Auto start čísla po otevření: nastaví se na (největší `PosledníČíslo` + 1)
-  podle názvů souborů '<První>-<Poslední>.(png|jpg|jpeg)' v aktuální složce.
+v3.2a (2025-10-29)
+- Editor polygonu: režim 'Vymalovat (štětcem)' jako checkbox v sekci Režimy.
+- Štětec je nezávislý na bodovém polygonu (žádné seedování); Reset/Vymazat smažou body i masku.
+- Kurzorem je kolečko v barvě polygonu; výchozí poloměr 5 px (měnitelný ve spinboxu).
+- Fix: při zapnutí štětce se ihned použije poloměr ze spinboxu (žádných 20 px do první změny).
 """
 
 import sys
