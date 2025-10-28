@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # --- Version & Changelog ---
-__version__ = "3.1a"
+__version__ = "3.1b"
 __changelog__ = """
 v3.1a (2025-10-28)
 - Oprava integrace: tlačítko 🍀 je v horním toolbaru 'Monitoring'.

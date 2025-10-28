@@ -943,7 +943,7 @@ from PySide6.QtWidgets import (
     QCheckBox, QFileDialog, QMessageBox, QScrollArea, QDialog, QSizePolicy
 )
 
-APP_VERSION = "3.1a"
+APP_VERSION = "3.1b"
 FOURLEAF_DEFAULT_DIR = Path("/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Čtyřlístky na sušičce/")
 
 class FLClickableLabel(QLabel):
