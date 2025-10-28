@@ -1,0 +1,21 @@
+{
+  "ts": "2025-10-24T21:43:25",
+  "overview": {
+    "orezy": {
+      "total": 1536,
+      "valid": 1532,
+      "invalid": 4
+    },
+    "originaly": {
+      "total": 15060,
+      "valid": 1556,
+      "invalid": 13504
+    }
+  },
+  "rename": {
+    "counts_html": "<b>Počty souborů:</b><br>&nbsp;• Ořezy: <b>1685</b><br>&nbsp;• Originály: <b>15157</b>",
+    "name_mismatch": 1350,
+    "format_errors": 13317,
+    "range_html": "<b>Rozsah a chybějící ID:</b><br>&nbsp;• Ořezy: min <b>1</b>, max <b>15139</b>, chybí: 146-13599<br>&nbsp;• Originály: min <b>1</b>, max <b>15157</b>, chybí: žádné"
+  }
+}

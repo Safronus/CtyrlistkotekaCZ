@@ -1,0 +1,532 @@
+{
+  "lokace": {
+    "1": [
+      "15-35",
+      "57-62",
+      "64-74",
+      "98",
+      "100-101",
+      "159-170",
+      "179",
+      "188-211",
+      "221-226",
+      "228-230",
+      "239-245",
+      "247-257",
+      "259-263",
+      "270-275",
+      "277-287",
+      "290-293",
+      "299-300",
+      "302",
+      "307-308",
+      "315-320",
+      "322-323",
+      "326-343",
+      "346-348",
+      "350-359",
+      "366-372",
+      "14305",
+      "15061"
+    ],
+    "2": [
+      "95",
+      "246",
+      "258",
+      "349"
+    ],
+    "5": [
+      "15059"
+    ],
+    "8": [
+      "13609"
+    ],
+    "9": [
+      "14559-14564",
+      "15062"
+    ],
+    "10": [
+      "13608",
+      "14310-14313",
+      "14765-14772",
+      "15087-15092"
+    ],
+    "11": [
+      "43",
+      "269"
+    ],
+    "12": [
+      "6",
+      "49",
+      "295-296"
+    ],
+    "13": [
+      "7",
+      "52-53"
+    ],
+    "14": [
+      "90",
+      "264-265",
+      "267",
+      "294",
+      "309",
+      "321"
+    ],
+    "15": [
+      "48",
+      "50"
+    ],
+    "17": [
+      "44",
+      "55",
+      "108",
+      "268"
+    ],
+    "18": [
+      "56"
+    ],
+    "20": [
+      "14309"
+    ],
+    "21": [
+      "158",
+      "360"
+    ],
+    "23": [
+      "15093-15094"
+    ],
+    "25": [
+      "13610-13618"
+    ],
+    "26": [
+      "13790-13967",
+      "14131-14304",
+      "14314-14434",
+      "14701-14709",
+      "15095-15142"
+    ],
+    "28": [
+      "14609-14630"
+    ],
+    "30": [
+      "13631-13744",
+      "14487-14551",
+      "14631-14700"
+    ],
+    "31": [
+      "13622-13630",
+      "13787-13789",
+      "13968-14107",
+      "14117-14130",
+      "14436-14486",
+      "14552-14554",
+      "14565-14606",
+      "14710-14759"
+    ],
+    "32": [
+      "13745-13786",
+      "14108-14116"
+    ],
+    "33": [
+      "13600-13602",
+      "14306-14308",
+      "14557-14558"
+    ],
+    "34": [
+      "13603"
+    ],
+    "35": [
+      "13604-13606"
+    ],
+    "36": [
+      "13607"
+    ],
+    "37": [
+      "13619-13620"
+    ],
+    "38": [
+      "13621"
+    ],
+    "39": [
+      "14435"
+    ],
+    "40": [
+      "14555"
+    ],
+    "41": [
+      "14556"
+    ],
+    "42": [
+      "1-2"
+    ],
+    "43": [
+      "3-5",
+      "183-186"
+    ],
+    "44": [
+      "14607-14608"
+    ],
+    "45": [
+      "8"
+    ],
+    "46": [
+      "9-13"
+    ],
+    "47": [
+      "36",
+      "112-130",
+      "137-155"
+    ],
+    "48": [
+      "14",
+      "312-314"
+    ],
+    "49": [
+      "37-40"
+    ],
+    "50": [
+      "41",
+      "175-176"
+    ],
+    "51": [
+      "42"
+    ],
+    "52": [
+      "14760-14761"
+    ],
+    "53": [
+      "78-87"
+    ],
+    "54": [
+      "14762"
+    ],
+    "55": [
+      "46",
+      "75-76",
+      "131",
+      "14763"
+    ],
+    "56": [
+      "14764"
+    ],
+    "57": [
+      "14773-15050"
+    ],
+    "58": [
+      "15051"
+    ],
+    "59": [
+      "15052-15058"
+    ],
+    "61": [
+      "15060"
+    ],
+    "62": [
+      "45"
+    ],
+    "63": [
+      "47",
+      "216-220"
+    ],
+    "64": [
+      "51",
+      "54",
+      "88",
+      "303-305"
+    ],
+    "65": [
+      "215",
+      "310"
+    ],
+    "66": [
+      "63"
+    ],
+    "67": [
+      "77",
+      "276",
+      "297-298",
+      "344-345",
+      "363-365"
+    ],
+    "68": [
+      "89"
+    ],
+    "69": [
+      "91-92"
+    ],
+    "70": [
+      "93-94",
+      "289"
+    ],
+    "71": [
+      "96"
+    ],
+    "72": [
+      "97"
+    ],
+    "73": [
+      "99",
+      "104",
+      "133-136",
+      "187"
+    ],
+    "74": [
+      "102"
+    ],
+    "75": [
+      "103"
+    ],
+    "76": [
+      "105",
+      "180-182",
+      "231-233",
+      "238",
+      "311",
+      "361-362"
+    ],
+    "77": [
+      "109-111"
+    ],
+    "78": [
+      "106-107"
+    ],
+    "79": [
+      "132"
+    ],
+    "80": [
+      "156-157"
+    ],
+    "81": [
+      "171-172"
+    ],
+    "82": [
+      "173-174"
+    ],
+    "83": [
+      "177"
+    ],
+    "84": [
+      "178"
+    ],
+    "85": [
+      "212-213",
+      "288"
+    ],
+    "87": [
+      "214"
+    ],
+    "88": [
+      "227"
+    ],
+    "89": [
+      "234",
+      "237"
+    ],
+    "90": [
+      "235-236"
+    ],
+    "91": [
+      "266"
+    ],
+    "92": [
+      "301"
+    ],
+    "93": [
+      "306"
+    ],
+    "94": [
+      "324"
+    ],
+    "95": [
+      "325"
+    ],
+    "96": [
+      "15063-15085"
+    ],
+    "97": [
+      "15086"
+    ],
+    "98": [
+      "15143-15150"
+    ],
+    "99": [
+      "15151-15156"
+    ],
+    "100": [
+      "15157"
+    ]
+  },
+  "stavy": {
+    "BEZFOTKY": [
+      "15055"
+    ],
+    "BEZGPS": [
+      "165"
+    ],
+    "BEZLOKACE": [
+      ""
+    ],
+    "DAROVANY": [
+      "13602-13603",
+      "13606",
+      "13608",
+      "13710",
+      "14556",
+      "14607-14608",
+      "14774",
+      "14777",
+      "14779-14780",
+      "14782-14785",
+      "14787-14793",
+      "14796-14813",
+      "14817-14818",
+      "14820-14822",
+      "14827",
+      "14832-14833",
+      "14837-14838",
+      "15000",
+      "15030",
+      "15034-15035",
+      "15062-15066",
+      "15068-15070",
+      "15072",
+      "15141-15156"
+    ],
+    "LOKACE-NEEXISTUJE": [
+      "36",
+      "112-130",
+      "137-155",
+      "325"
+    ],
+    "NEUTRZEN": [],
+    "ZTRACENY": [
+      "378",
+      "14561"
+    ]
+  },
+  "poznamky": {
+    "156": "Nalezeno v Irsku v Dublinu",
+    "157": "Nalezeno v Irsku v Dublinu",
+    "165": "Nalezeno pomocí hledací aplikace - diplomová práce Matúš Giertla",
+    "214": "Svatba Nelky a Patrika",
+    "234": "Výlet do Znojma na slavnosti vína a návštěva přehrady",
+    "235": "Výlet do Znojma na slavnosti vína a návštěva přehrady",
+    "236": "Výlet do Znojma na slavnosti vína a návštěva přehrady",
+    "237": "Výlet do Znojma na slavnosti vína a návštěva přehrady",
+    "11767": "DAR - FAI AI Symposium 2025",
+    "11782": "DAR - FAI AI Symposium 2025",
+    "11812": "DAR - FAI AI Symposium 2025",
+    "13602": "DAR - Zkouška ISTQB Brno 3-9-2025 - Martin Bečka",
+    "13603": "DAR - Stánla na negování efektu zrcadla",
+    "13606": "DAR - Leona Krkošková",
+    "13608": "DAR - Zkouška ISTQB Brno 3-9-2025 - Barbora Zajacová",
+    "13710": "DAR - Dárcům krve a oddělení darování krve",
+    "14556": "DAR - Ema Hriciková - oční operace",
+    "14561": "Ztracený při hledání čísla 14609 -> cca 21-9-2025 v 0953 kvůli větru",
+    "14607": "DAR - Brášule a jeho rodinka - stěhování do Slopného",
+    "14608": "DAR - Brášule a jeho rodinka - stěhování do Slopného",
+    "14773": "První nalezený na Islandu - Reykjavík",
+    "14774": "DAR - Vánoce 2025 - Míša studijní",
+    "14777": "DAR - Vánoce 2025 - Ivuška studijní",
+    "14779": "DAR - Vánoce 2025 - Honza Krňávek",
+    "14780": "DAR - Vánoce 2025 - Adam Ulrich",
+    "14782": "DAR - Radovanovi Hoškovi",
+    "14783": "DAR - Vánoce 2025 - Eva Borková",
+    "14784": "DAR - Vánoce 2025 - Dušan Hrabec",
+    "14785": "DAR - Vánoce 2025 - Franta Gazdoš",
+    "14787": "DAR - Vánoce 2025 - Danička Musilová",
+    "14788": "DAR - Vánoce 2025 - Peter Janků",
+    "14789": "DAR - Vánoce 2025 - Tom Kadavý",
+    "14790": "DAR - Vánoce 2025 - Tom Dulík",
+    "14791": "DAR - Vánoce 2025 - Laďa Dorotík",
+    "14792": "DAR - Vánoce 2025 - Broňa Chramcov",
+    "14793": "DAR - Vánoce 2025 - Zuzka K. O.",
+    "14796": "DAR - Vánoce 2025 - Adam Viktorín",
+    "14797": "DAR - Vánoce 2025 - Dejv",
+    "14798": "DAR - Vánoce 2025 - Šéňa",
+    "14799": "DAR - Vánoce 2025 - Radek Vala",
+    "14800": "DAR - Vánoce 2025 - Pavlík Vařacha",
+    "14801": "DAR - Vánoce 2025 - Bětka Turečková",
+    "14802": "DAR - Vánoce 2025 - Milan Oulehla",
+    "14803": "DAR - Vánoce 2025 - Eva Žipajová",
+    "14804": "DAR - Vánoce 2025 - Verča Vysloužilová",
+    "14805": "DAR - Vánoce 2025 - Monika K.",
+    "14806": "DAR - Vánoce 2025 - Domča",
+    "14807": "DAR - Vánoce 2025 - Anička",
+    "14808": "DAR - Vánoce 2025 - Aleš Komínek",
+    "14809": "DAR - Vánoce 2025 - Patrik Lehner",
+    "14810": "DAR - Vánoce 2025 - Peťa Mařák",
+    "14811": "DAR - Vánoce 2025 - Jirka Vojtěšek",
+    "14812": "DAR - Vánoce 2025 - Marky",
+    "14813": "DAR - Vánoce 2025 - Tajemnice",
+    "14817": "DAR - Vánoce 2025 - Z. Prokopová",
+    "14818": "DAR - Vánoce 2025 - Tom Sysala",
+    "14820": "DAR - Vánoce 2025 - Luky Králík",
+    "14821": "DAR - Vánoce 2025 - Erik Král",
+    "14822": "DAR - Vánoce 2025 - Dorka",
+    "14827": "DAR - Vánoce 2025 - Luky Kotek",
+    "14832": "DAR - Vánoce 2025 - Stánla",
+    "14833": "DAR - Vánoce 2025 - Tom Martínek",
+    "14837": "DAR - Vánoce 2025 - Míša Mikuličová",
+    "14838": "DAR - Vánoce 2025 - Eva Buchtová",
+    "14920": "V ČR nález plus 2 hodiny - 01-10-2025 01:13:35",
+    "15000": "DAR - Vánoce 2025 - Šéf",
+    "15030": "DAR - Vánoce 2025 - paní Wallková",
+    "15034": "DAR - Vánoce 2025 - pan Wallek",
+    "15035": "DAR - Vánoce 2025 - paní z E-Mincí",
+    "15055": "U Magďul na terase, jen chybí fotka.",
+    "15062": "DAR - Academia WG - GA Copenhagen - Nishan",
+    "15063": "DAR - Academia WG - GA Copenhagen - Dmitrij",
+    "15064": "DAR - Academia WG - GA Copenhagen - Katalin",
+    "15065": "DAR - Academia WG - GA Copenhagen - Lucjan",
+    "15066": "DAR - Academia WG - GA Copenhagen - Nitzan",
+    "15068": "DAR - Academia WG - GA Copenhagen - Patricia",
+    "15069": "DAR - Academia WG - GA Copenhagen - Salome",
+    "15070": "DAR - Academia WG - GA Copenhagen - Sandy",
+    "15072": "DAR - Academia WG - GA Copenhagen - Yaron",
+    "15087": "Sušící platíčko od Dava - Alpha Test",
+    "15088": "Sušící platíčko od Dava - Alpha Test",
+    "15089": "Sušící platíčko od Dava - Alpha Test",
+    "15090": "Sušící platíčko od Dava - Alpha Test",
+    "15091": "Sušící platíčko od Dava - Alpha Test",
+    "15092": "Sušící platíčko od Dava - Alpha Test",
+    "15095": "Poprvé použitá sušička od Dava",
+    "15141": "DAR - FAI AI Symposium 2025",
+    "15142": "DAR - FAI AI Symposium 2025",
+    "15143": "DAR - FAI AI Symposium 2025",
+    "15144": "DAR - FAI AI Symposium 2025",
+    "15145": "DAR - FAI AI Symposium 2025",
+    "15146": "DAR - FAI AI Symposium 2025",
+    "15147": "DAR - FAI AI Symposium 2025",
+    "15148": "DAR - FAI AI Symposium 2025",
+    "15149": "DAR - FAI AI Symposium 2025",
+    "15150": "DAR - FAI AI Symposium 2025",
+    "15151": "DAR - FAI AI Symposium 2025",
+    "15152": "DAR - FAI AI Symposium 2025",
+    "15153": "DAR - FAI AI Symposium 2025",
+    "15154": "DAR - Míša Signál Festival 2025",
+    "15155": "DAR - FAI AI Symposium 2025",
+    "15156": "DAR - FAI AI Symposium 2025"
+  },
+  "anonymizace": {
+    "ANONYMIZOVANE": [
+      "6-7",
+      "43-44",
+      "48-56",
+      "78-90",
+      "99",
+      "104",
+      "108",
+      "133-136",
+      "187",
+      "215",
+      "264-265",
+      "267-269",
+      "294-296",
+      "303-305",
+      "309-310",
+      "321",
+      "15052-15058"
+    ]
+  }
+}
