@@ -945,7 +945,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtWidgets import QApplication
 
-APP_VERSION = "3.1h"
+APP_VERSION = "3.1i"
 FOURLEAF_DEFAULT_DIR = Path("/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Čtyřlístky na sušičce/")
 
 class FLClickableLabel(QLabel):
@@ -1072,15 +1072,45 @@ class FourLeafCounterWidget(QWidget):
                 return files[0] if files else ""
             return ""
 
+    def _auto_set_start_from_dir(self, directory: Path) -> None:
+        """
+        Vyhledá v dané složce soubory pojmenované 'První-Poslední.(png|jpg|jpeg)'
+        a nastaví start_number = max(Poslední). Pokud nic nenajde, nedělá nic.
+        """
+        try:
+            pat = re.compile(r'^\s*(\d+)\s*-\s*(\d+)\s*\.(?:png|jpe?g)$', re.IGNORECASE)
+            max_last = None
+            for p in directory.iterdir():
+                if not p.is_file():
+                    continue
+                m = pat.match(p.name)
+                if not m:
+                    continue
+                last = int(m.group(2))
+                max_last = last if max_last is None else max(max_last, last)
+    
+            if max_last is not None:
+                self.start_number = int(max_last)  # přesně dle zadání: nastav na největší PosledníČíslo
+                # zapiš do spinboxu bez vyvolání handleru
+                try:
+                    self.spin_start.blockSignals(True)
+                    self.spin_start.setValue(self.start_number)
+                finally:
+                    self.spin_start.blockSignals(False)
+        except Exception:
+            # tiché selhání = beze změny
+            pass
+
     # ---------- Uživatelské akce ----------
     def open_image(self) -> None:
-        start = str(self.last_dir)
-        fname, _ = QFileDialog.getOpenFileName(
-            self, "Otevřít obrázek", start,
-            "Obrázky (*.png *.jpg *.jpeg *.bmp *.tif *.tiff)"
+        fname = self._get_open_filename(
+            caption="Otevřít obrázek",
+            start_dir=str(self.last_dir),
+            filter_str="Obrázky (*.png *.jpg *.jpeg *.bmp *.tif *.tiff)"
         )
         if not fname:
             return
+    
         img = cv2.imread(fname, cv2.IMREAD_COLOR)
         if img is None:
             QMessageBox.critical(self, "Chyba", "Nelze načíst obrázek.")
@@ -1091,9 +1121,13 @@ class FourLeafCounterWidget(QWidget):
         self.points.clear()
         self.hover_pos_label = None
         self.last_dir = Path(fname).parent
+    
+        # >>> NOVÉ: automatické nastavení start_number dle souborů ve složce
+        self._auto_set_start_from_dir(self.last_dir)
+    
         self._update_buttons()
     
-        # 1) první render -> spočítá se self._geom (scale/offset) a zobrazí se obrázek
+        # 1) první render -> spočítá self._geom (scale/offset) a zobrazí se obrázek
         self.render()
     
         # 2) nastav počáteční náhled: aktuální kurzor, případně střed obrázku v labelu
@@ -1101,7 +1135,6 @@ class FourLeafCounterWidget(QWidget):
         mapped_ok = (self._map_label_to_image(pos) is not None)
     
         if not mapped_ok and hasattr(self, "_geom"):
-            # vypočti střed obrázku v souřadnicích QLabelu (letterbox)
             scale, off_x, off_y, img_w, img_h = self._geom
             cx = int(round(off_x + (img_w * scale) / 2.0))
             cy = int(round(off_y + (img_h * scale) / 2.0))
