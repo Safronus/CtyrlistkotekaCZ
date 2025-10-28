@@ -1,0 +1,4 @@
+settings.json
+__pychache__/
+core/__pycache__/
+gui/__pycache__/
