@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-__version__ = "3.1d"
+__version__ = "3.1e"
 __changelog__ = """
-v3.1d (2025-10-28)
-- Střed textu na kurzor (OpenCV getTextSize).
-- macOS file dialog focus fix (nenativní, ApplicationModal).
-- Bezpečné znovuotevření docku (Shiboken.isValid + destroyed→None).
+v3.1e (2025-10-28)
+- Fix: náhled čísla se plynule pohybuje s kurzorem (správné pořadí výpočtu scale/offset).
 """
 
 import sys

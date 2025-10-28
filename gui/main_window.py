@@ -944,7 +944,7 @@ from PySide6.QtWidgets import (
     QCheckBox, QFileDialog, QMessageBox, QDockWidget, QSizePolicy
 )
 
-APP_VERSION = "3.1c"
+APP_VERSION = "3.1e"
 FOURLEAF_DEFAULT_DIR = Path("/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Čtyřlístky na sušičce/")
 
 class FLClickableLabel(QLabel):
@@ -1143,24 +1143,38 @@ class FourLeafCounterWidget(QWidget):
         self.label.setPixmap(QPixmap.fromImage(qimg.copy()))
 
     def _render_display_image(self) -> Optional[np.ndarray]:
+        """
+        Vykreslí zobrazení do QLabel: NEJDŘÍV spočítám geometrii (scale/offset) a uložím ji
+        do self._geom, a POTOM volám _render_image(draw_preview=True), aby mapování kurzoru
+        používalo aktuální geometrii. Tím se náhled čísla plynule hýbe s myší.
+        """
         if self.image_bgr is None:
             return None
-        # vykresli čísla na kopii originálu (v originální velikosti)
-        composed = self._render_image(draw_preview=True)
-        # spočti škálování do labelu (fit + centrování)
+    
+        # velikost originálu
+        img_h, img_w = self.image_bgr.shape[:2]
+    
+        # cílová plocha (QLabel)
         target_w = max(1, self.label.width())
         target_h = max(1, self.label.height())
-        img_h, img_w = composed.shape[:2]
+    
+        # scale-to-fit
         scale = min(target_w / img_w, target_h / img_h)
-        new_w, new_h = max(1, int(img_w * scale)), max(1, int(img_h * scale))
-        resized = cv2.resize(composed, (new_w, new_h), interpolation=cv2.INTER_AREA)
-        # Vlož do „letterboxu“ velikosti labelu (černé pozadí)
-        out = np.zeros((target_h, target_w, 3), dtype=np.uint8)
+        new_w = max(1, int(img_w * scale))
+        new_h = max(1, int(img_h * scale))
         off_x = (target_w - new_w) // 2
         off_y = (target_h - new_h) // 2
-        out[off_y:off_y+new_h, off_x:off_x+new_w] = resized
-        # Ulož aktuální geometrii pro mapování kliků
+    
+        # ⚠️ klíčové: ulož geometrii DŘÍV, než se bude vykreslovat preview
         self._geom = (scale, off_x, off_y, img_w, img_h)
+    
+        # vykresli kompozici v originální velikosti vč. (aktuálního) preview
+        composed = self._render_image(draw_preview=True)
+    
+        # downscale do labelu + letterbox
+        resized = cv2.resize(composed, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        out = np.zeros((target_h, target_w, 3), dtype=np.uint8)
+        out[off_y:off_y + new_h, off_x:off_x + new_w] = resized
         return out
 
     def _render_image(self, draw_preview: bool) -> np.ndarray:
