@@ -104,3 +104,6 @@ logs/
 # Explicit per user request
 __pycache__/
 **/__pycache__/
+settings.json
+settings_backup.json
+settings/settings.json

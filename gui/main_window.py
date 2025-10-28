@@ -930,6 +930,187 @@ class MultiZoomPreviewDialog(QDialog):
             
         super().closeEvent(event)
 
+from pathlib import Path
+from typing import List, Optional, Tuple
+
+import cv2
+import numpy as np
+
+from PySide6.QtCore import Qt, QPoint
+from PySide6.QtGui import QAction, QIcon, QPainter, QPixmap, QFont, QKeySequence, QShortcut, QImage
+from PySide6.QtWidgets import (
+    QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QSpinBox,
+    QCheckBox, QFileDialog, QMessageBox, QScrollArea, QDialog, QSizePolicy
+)
+
+APP_VERSION = "3.1a"
+FOURLEAF_DEFAULT_DIR = Path("/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Čtyřlístky na sušičce/")
+
+class FLClickableLabel(QLabel):
+    from PySide6.QtCore import Signal
+    clicked = Signal(QPoint)
+    rightClicked = Signal(QPoint)
+    hovered = Signal(QPoint)
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setMouseTracking(True)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit(event.position().toPoint())
+        elif event.button() == Qt.MouseButton.RightButton:
+            self.rightClicked.emit(event.position().toPoint())
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:
+        self.hovered.emit(event.position().toPoint())
+        super().mouseMoveEvent(event)
+
+
+class FourLeafCounterWidget(QWidget):
+    """Interaktivní číslování bodů v obrázku (OpenCV), start, náhled, Undo/Reset, uložení."""
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self._img_bgr: Optional[np.ndarray] = None
+        self._points: List[Tuple[int, int]] = []
+        self._start_num: int = 1
+        self._preview: bool = True
+        self._last_dir: Path = FOURLEAF_DEFAULT_DIR if FOURLEAF_DEFAULT_DIR.exists() else Path.home()
+
+        self.btn_open = QPushButton("📂 Otevřít")
+        self.btn_save = QPushButton("💾 Uložit"); self.btn_save.setEnabled(False)
+        self.spin_start = QSpinBox(); self.spin_start.setRange(-999999, 999999); self.spin_start.setValue(self._start_num); self.spin_start.setPrefix("Start: ")
+        self.chk_preview = QCheckBox("Živý náhled"); self.chk_preview.setChecked(True)
+        self.btn_undo = QPushButton("↶ Zpět"); self.btn_undo.setEnabled(False)
+        self.btn_reset = QPushButton("🗑 Vymazat vše"); self.btn_reset.setEnabled(False)
+
+        top = QHBoxLayout()
+        for w in (self.btn_open, self.btn_save, self.spin_start, self.chk_preview, self.btn_undo, self.btn_reset):
+            top.addWidget(w)
+        top.addStretch(1)
+
+        self.lbl = FLClickableLabel()
+        self.lbl.setMinimumSize(320, 240)
+
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setWidget(self.lbl)
+
+        lay = QVBoxLayout(self)
+        lay.addLayout(top)
+        lay.addWidget(self.scroll)
+
+        self.btn_open.clicked.connect(self.open_image)
+        self.btn_save.clicked.connect(self.save_image)
+        self.spin_start.valueChanged.connect(self._on_start_changed)
+        self.chk_preview.toggled.connect(self._on_preview_toggled)
+        self.btn_undo.clicked.connect(self.undo_last)
+        self.btn_reset.clicked.connect(self.reset_points)
+
+        self.lbl.clicked.connect(self._on_image_clicked)
+        self.lbl.rightClicked.connect(self._on_right_click)
+        self.lbl.hovered.connect(self._on_hover)
+
+    # ----- actions -----
+    def has_image(self) -> bool: return self._img_bgr is not None
+
+    def open_image(self) -> None:
+        start = str(self._last_dir)
+        fname, _ = QFileDialog.getOpenFileName(self, "Otevřít obrázek", start, "Obrázky (*.png *.jpg *.jpeg *.bmp *.tif *.tiff)")
+        if not fname: return
+        img = cv2.imread(fname, cv2.IMREAD_COLOR)
+        if img is None:
+            QMessageBox.critical(self, "Chyba", "Nelze načíst obrázek.")
+            return
+        self._img_bgr = img
+        self._points.clear()
+        self._set_points_enabled(False)
+        self._last_dir = Path(fname).parent
+        self._render_and_show()
+
+    def save_image(self) -> None:
+        if not self.has_image(): return
+        out = self._render_image(with_numbers=True)
+        start = str(self._last_dir)
+        fname, _ = QFileDialog.getSaveFileName(self, "Uložit výsledek", start, "PNG (*.png);;JPEG (*.jpg *.jpeg)")
+        if not fname: return
+        ok = cv2.imwrite(fname, out)
+        if ok: QMessageBox.information(self, "Uloženo", "Obrázek byl uložen.")
+        else: QMessageBox.critical(self, "Chyba", "Ukládání selhalo.")
+
+    def _on_start_changed(self, val: int) -> None:
+        self._start_num = val; self._render_and_show()
+
+    def _on_preview_toggled(self, on: bool) -> None:
+        self._preview = on; self._render_and_show()
+
+    def undo_last(self) -> None:
+        if self._points:
+            self._points.pop()
+            self._set_points_enabled(bool(self._points))
+            self._render_and_show()
+
+    def reset_points(self) -> None:
+        self._points.clear(); self._set_points_enabled(False); self._render_and_show()
+
+    def _on_right_click(self, _pos: QPoint) -> None: self.undo_last()
+
+    def _on_image_clicked(self, pos: QPoint) -> None:
+        if not self.has_image(): return
+        x = int(max(0, min(pos.x(), self._img_bgr.shape[1] - 1)))
+        y = int(max(0, min(pos.y(), self._img_bgr.shape[0] - 1)))
+        self._points.append((x, y)); self._set_points_enabled(True); self._render_and_show()
+
+    def _on_hover(self, _pos: QPoint) -> None:
+        if self._preview: self._render_and_show()
+
+    # ----- rendering -----
+    def _render_and_show(self) -> None:
+        img = self._render_image(with_numbers=self._preview)
+        self._show_image(img)
+
+    def _render_image(self, with_numbers: bool) -> np.ndarray:
+        if self._img_bgr is None:
+            return np.zeros((480, 640, 3), dtype=np.uint8)
+        canvas = self._img_bgr.copy()
+        if with_numbers and self._points:
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = max(0.5, min(canvas.shape[1], canvas.shape[0]) / 800.0)
+            thickness = max(1, int(round(font_scale * 2)))
+            for idx, (x, y) in enumerate(self._points, start=self._start_num):
+                self._put_text_outline(canvas, str(idx), (x, y), font, font_scale, thickness)
+        return canvas
+
+    @staticmethod
+    def _put_text_outline(img: np.ndarray, text: str, org: Tuple[int, int], font, font_scale: float, thickness: int) -> None:
+        cv2.putText(img, text, org, font, font_scale, (0, 0, 0), thickness + 2, cv2.LINE_AA)
+        cv2.putText(img, text, org, font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
+
+    def _show_image(self, bgr: np.ndarray) -> None:
+        rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+        h, w = rgb.shape[:2]
+        qimg = QImage(rgb.data, w, h, rgb.strides[0], QImage.Format.Format_RGB888)
+        pix = QPixmap.fromImage(qimg.copy())
+        self.lbl.setPixmap(pix); self.lbl.resize(pix.size())
+
+    def _set_points_enabled(self, enabled: bool) -> None:
+        self.btn_save.setEnabled(self.has_image())
+        self.btn_undo.setEnabled(enabled)
+        self.btn_reset.setEnabled(enabled)
+
+
+class FourLeafCounterDialog(QDialog):
+    """Nemodální okno s počítadlem; zavírání ⌘W (QKeySequence.Close)."""
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Počítadlo čtyřlístků")
+        lay = QVBoxLayout(self)
+        self.widget = FourLeafCounterWidget(self)
+        lay.addWidget(self.widget)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        QShortcut(QKeySequence(QKeySequence.StandardKey.Close), self, activated=self.close)
 # === HLAVNÍ OKNO A ZÁKLADNÍ UI ===
 class MainWindow(QMainWindow):
     """Hlavní okno aplikace"""
@@ -1073,11 +1254,100 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'log_widget'):
                 self.log_widget.add_log(f"❌ Chyba při nastavování zkratek filtru: {e}", "error")
 
-    # Soubor: main_window.py
-    # Třída: MainWindow
-    # FUNKCE: setup_file_tree_anonym_column
-    # ÚPRAVA: zajistí i 6. sloupec „Polygon“ (index 5) a šířku obou sloupců.
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QAction, QIcon, QPainter, QPixmap, QFont
+    from PySide6.QtWidgets import QToolBar
     
+    def showEvent(self, event) -> None:
+        """Při 1. zobrazení okna injektuje tlačítko 🍀 do monitor_toolbar a aplikuje verzi do titulku."""
+        try:
+            if not hasattr(self, "_fourleaf_injected"):
+                self._fourleaf_injected = True
+                self._inject_fourleaf_ui()
+                # Verze do titulku
+                try:
+                    title = self.windowTitle() or "Aplikace"
+                    if f"(v{APP_VERSION})" not in title:
+                        self.setWindowTitle(f"{title} (v{APP_VERSION})")
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        super().showEvent(event)
+    
+    def _inject_fourleaf_ui(self) -> None:
+        """
+        Přidá tlačítko '🍀 Počítadlo' do self.monitor_toolbar, hned vedle existujících.
+        Umístění: po '🧩 Web fotky' a před gapem pro FullHD/4K (pokud gap najdu).
+        """
+        # style_btn a palety TEAL/PURP atd. máš v modulu; použijeme stejný helper
+        try:
+            from PySide6.QtWidgets import QPushButton
+            # Ověř, že toolbar existuje
+            tb = getattr(self, "monitor_toolbar", None)
+            if tb is None:
+                # Není-li toolbar k dispozici (extrémně), neprovádět nic
+                return
+    
+            # Pokud už tlačítko existuje, neinstaluj znovu
+            if hasattr(self, "btn_fourleaf") and self.btn_fourleaf and isinstance(self.btn_fourleaf, QPushButton):
+                return
+    
+            # Vytvoř tlačítko a nasaď styl jako u ostatních (např. TEAL)
+            self.btn_fourleaf = QPushButton("🍀 Počítadlo")
+            # Existují 2 verze style_btn; obě podporují 'w=' -> žádný problém
+            try:
+                style_btn(self.btn_fourleaf, *TEAL, w=95)  # šířka podobná jako 'Web fotky'
+            except Exception:
+                try:
+                    style_btn(self.btn_fourleaf, *TEAL, max_w=95)
+                except Exception:
+                    pass
+    
+            self.btn_fourleaf.setToolTip("Otevřít počítadlo čtyřlístků (nemodální okno)")
+            self.btn_fourleaf.clicked.connect(self.open_fourleaf_counter_window)
+    
+            # Vložit hned za 'Web fotky', pokud ho najdeme; jinak prostě přidat na konec
+            try:
+                tb.addWidget(self.btn_fourleaf)
+            except Exception:
+                pass
+    
+            # Ujisti se, že toolbar je vidět
+            try:
+                tb.setVisible(True)
+            except Exception:
+                pass
+    
+        except Exception as e:
+            print(f"[FourLeaf] Inject UI failed: {e}")
+    
+    def open_fourleaf_counter_window(self) -> None:
+        """Otevře nemodální okno Počítadla; pokud už běží, vyzvedne ho."""
+        try:
+            win = getattr(self, "_fourleaf_win", None)
+            if win is not None and win.isVisible():
+                try:
+                    win.raise_(); win.activateWindow()
+                except Exception:
+                    pass
+                return
+    
+            dlg = FourLeafCounterDialog(self)
+            self._fourleaf_win = dlg
+            try:
+                dlg.destroyed.connect(lambda *_: setattr(self, "_fourleaf_win", None))
+            except Exception:
+                pass
+    
+            dlg.show()
+            try:
+                dlg.raise_(); dlg.activateWindow()
+            except Exception:
+                pass
+        except Exception as e:
+            print(f"[FourLeaf] Nelze otevřít okno: {e}")
+            
     from PySide6.QtCore import QTimer
     
     def setup_file_tree_anonym_column(self) -> None:
