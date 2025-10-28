@@ -945,7 +945,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtWidgets import QApplication
 
-APP_VERSION = "3.1i"
+APP_VERSION = "3.1j"
 FOURLEAF_DEFAULT_DIR = Path("/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Čtyřlístky na sušičce/")
 
 class FLClickableLabel(QLabel):
@@ -1075,7 +1075,7 @@ class FourLeafCounterWidget(QWidget):
     def _auto_set_start_from_dir(self, directory: Path) -> None:
         """
         Vyhledá v dané složce soubory pojmenované 'První-Poslední.(png|jpg|jpeg)'
-        a nastaví start_number = max(Poslední). Pokud nic nenajde, nedělá nic.
+        a nastaví start_number = max(Poslední) + 1.
         """
         try:
             pat = re.compile(r'^\s*(\d+)\s*-\s*(\d+)\s*\.(?:png|jpe?g)$', re.IGNORECASE)
@@ -1090,7 +1090,7 @@ class FourLeafCounterWidget(QWidget):
                 max_last = last if max_last is None else max(max_last, last)
     
             if max_last is not None:
-                self.start_number = int(max_last)  # přesně dle zadání: nastav na největší PosledníČíslo
+                self.start_number = int(max_last) + 1  # << jediná podstata změny
                 # zapiš do spinboxu bez vyvolání handleru
                 try:
                     self.spin_start.blockSignals(True)
@@ -1098,7 +1098,7 @@ class FourLeafCounterWidget(QWidget):
                 finally:
                     self.spin_start.blockSignals(False)
         except Exception:
-            # tiché selhání = beze změny
+            # tiché selhání = žádná změna start_number
             pass
 
     # ---------- Uživatelské akce ----------

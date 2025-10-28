@@ -42,6 +42,7 @@ python main.py
 ---
 
 ## Changelog
+- **v3.1j – 2025-10-28 — Auto start čísla = max PosledníČíslo + 1.**
 - **v3.1i – 2025-10-28**
   - Po otevření souboru se **startovní číslo** automaticky nastaví na **největší `PosledníČíslo`** dle názvů `První-Poslední.(png|jpg|jpeg)` v aktuální složce.  
   - Při uložení se **navrhne název** `První-Poslední.png`.

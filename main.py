@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-__version__ = "3.1h"
+# --- Version & Changelog ---
+__version__ = "3.1j"
 __changelog__ = """
-v3.1h (2025-10-28)
-- macOS: nativní file dialog (klik ihned), save: návrh názvu '<první>-<poslední>.png'.
+v3.1j (2025-10-28)
+- Auto start čísla po otevření: nastaví se na (největší `PosledníČíslo` + 1)
+  podle názvů souborů '<První>-<Poslední>.(png|jpg|jpeg)' v aktuální složce.
 """
 
 import sys
