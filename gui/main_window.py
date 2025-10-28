@@ -938,7 +938,7 @@ import cv2
 import numpy as np
 
 from PySide6.QtCore import Qt, QPoint, QSize
-from PySide6.QtGui import QImage, QPixmap, QKeySequence, QShortcut, QAction, QIcon, QPainter, QFont
+from PySide6.QtGui import QImage, QPixmap, QKeySequence, QShortcut, QAction, QIcon, QPainter, QFont, QCursor
 from PySide6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QSpinBox,
     QCheckBox, QFileDialog, QMessageBox, QDockWidget, QSizePolicy
@@ -1060,10 +1060,10 @@ class FourLeafCounterWidget(QWidget):
 
     # ---------- Uživatelské akce ----------
     def open_image(self) -> None:
-        fname = self._get_open_filename(
-            caption="Otevřít obrázek",
-            start_dir=str(self.last_dir),
-            filter_str="Obrázky (*.png *.jpg *.jpeg *.bmp *.tif *.tiff)"
+        start = str(self.last_dir)
+        fname, _ = QFileDialog.getOpenFileName(
+            self, "Otevřít obrázek", start,
+            "Obrázky (*.png *.jpg *.jpeg *.bmp *.tif *.tiff)"
         )
         if not fname:
             return
@@ -1071,11 +1071,31 @@ class FourLeafCounterWidget(QWidget):
         if img is None:
             QMessageBox.critical(self, "Chyba", "Nelze načíst obrázek.")
             return
+    
+        # reset stavu
         self.image_bgr = img
         self.points.clear()
         self.hover_pos_label = None
         self.last_dir = Path(fname).parent
         self._update_buttons()
+    
+        # 1) první render -> spočítá se self._geom (scale/offset) a zobrazí se obrázek
+        self.render()
+    
+        # 2) nastav počáteční náhled: aktuální kurzor, případně střed obrázku v labelu
+        pos = self.label.mapFromGlobal(QCursor.pos())
+        mapped_ok = (self._map_label_to_image(pos) is not None)
+    
+        if not mapped_ok and hasattr(self, "_geom"):
+            # vypočti střed obrázku v souřadnicích QLabelu (letterbox)
+            scale, off_x, off_y, img_w, img_h = self._geom
+            cx = int(round(off_x + (img_w * scale) / 2.0))
+            cy = int(round(off_y + (img_h * scale) / 2.0))
+            pos = QPoint(cx, cy)
+    
+        self.hover_pos_label = pos
+    
+        # 3) druhý render -> hned uvidíš „razítko“ i bez pohnutí myší
         self.render()
 
     def save_image(self) -> None:
@@ -1218,6 +1238,22 @@ class FourLeafCounterWidget(QWidget):
                             (180, 180, 180), preview_thick, cv2.LINE_AA)
     
         return canvas
+
+    def _put_centered_text_with_outline(self, img: np.ndarray, text: str, center: Tuple[int, int],
+                                        font, scale: float, thickness: int) -> None:
+        """
+        Nakreslí text tak, aby jeh o STŘED ležel přesně v 'center'.
+        (OpenCV kreslí od levého rohu na baseline → srovnání přes getTextSize.)
+        """
+        (w, h), _ = cv2.getTextSize(text, font, scale, thickness)
+        cx, cy = int(center[0]), int(center[1])
+        org_x = int(round(cx - w / 2.0))
+        org_y = int(round(cy + h / 2.0))  # baseline = střed + h/2
+    
+        # černý obrys (o něco silnější)
+        cv2.putText(img, text, (org_x, org_y), font, scale, (0, 0, 0), thickness + 4, cv2.LINE_AA)
+        # bílá výplň
+        cv2.putText(img, text, (org_x, org_y), font, scale, (255, 255, 255), thickness, cv2.LINE_AA)
         
     @staticmethod
     def _put_text_with_outline(img: np.ndarray, text: str, org: Tuple[int, int], font, scale: float, thickness: int) -> None:
