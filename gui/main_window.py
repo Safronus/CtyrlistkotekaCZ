@@ -945,7 +945,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtWidgets import QApplication
 
-APP_VERSION = "3.1f"
+APP_VERSION = "3.1h"
 FOURLEAF_DEFAULT_DIR = Path("/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Čtyřlístky na sušičce/")
 
 class FLClickableLabel(QLabel):
@@ -1039,51 +1039,38 @@ class FourLeafCounterWidget(QWidget):
         QShortcut(QKeySequence(QKeySequence.StandardKey.Save), self, activated=self.save_image)
         
     def _get_open_filename(self, caption: str, start_dir: str, filter_str: str) -> str:
-        dlg = QFileDialog(self.window(), caption, start_dir, filter_str)
-        dlg.setFileMode(QFileDialog.FileMode.ExistingFile)
-        dlg.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-        dlg.setOption(QFileDialog.Option.DontUseCustomDirectoryIcons, True)
-        dlg.setDirectory(start_dir)
-        dlg.setWindowModality(Qt.WindowModality.WindowModal)
-        dlg.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        """
+        macOS: nativní sheet (klikatelné ihned).
+        Ostatní: standardní dialog.
+        """
+        if sys.platform == "darwin":
+            fname, _ = QFileDialog.getOpenFileName(self.window(), caption, start_dir, filter_str)
+            return fname or ""
+        else:
+            dlg = QFileDialog(self.window(), caption, start_dir, filter_str)
+            dlg.setFileMode(QFileDialog.FileMode.ExistingFile)
+            dlg.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+            if dlg.exec() == QFileDialog.DialogCode.Accepted:
+                files = dlg.selectedFiles()
+                return files[0] if files else ""
+            return ""
     
-        # Aktivace a fokus ještě před exec → macOS: okamžitě klikatelný
-        dlg.show()
-        QApplication.processEvents()
-        try:
-            dlg.raise_()
-            dlg.activateWindow()
-            dlg.setFocus()
-        except Exception:
-            pass
-    
-        if dlg.exec() == QFileDialog.DialogCode.Accepted:
-            files = dlg.selectedFiles()
-            return files[0] if files else ""
-        return ""
-    
-    def _get_save_filename(self, caption: str, start_dir: str, filter_str: str) -> str:
-        dlg = QFileDialog(self.window(), caption, start_dir, filter_str)
-        dlg.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
-        dlg.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-        dlg.setOption(QFileDialog.Option.DontUseCustomDirectoryIcons, True)
-        dlg.setDirectory(start_dir)
-        dlg.setWindowModality(Qt.WindowModality.WindowModal)
-        dlg.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-    
-        dlg.show()
-        QApplication.processEvents()
-        try:
-            dlg.raise_()
-            dlg.activateWindow()
-            dlg.setFocus()
-        except Exception:
-            pass
-    
-        if dlg.exec() == QFileDialog.DialogCode.Accepted:
-            files = dlg.selectedFiles()
-            return files[0] if files else ""
-        return ""
+    def _get_save_filename(self, caption: str, start_dir: str, filter_str: str, suggested_name: str = "") -> str:
+        """
+        macOS: nativní sheet s předvyplněným názvem; ostatní: standardní dialog.
+        """
+        initial = str(Path(start_dir) / suggested_name) if suggested_name else start_dir
+        if sys.platform == "darwin":
+            fname, _ = QFileDialog.getSaveFileName(self.window(), caption, initial, filter_str)
+            return fname or ""
+        else:
+            dlg = QFileDialog(self.window(), caption, initial, filter_str)
+            dlg.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+            dlg.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+            if dlg.exec() == QFileDialog.DialogCode.Accepted:
+                files = dlg.selectedFiles()
+                return files[0] if files else ""
+            return ""
 
     # ---------- Uživatelské akce ----------
     def open_image(self) -> None:
@@ -1128,17 +1115,31 @@ class FourLeafCounterWidget(QWidget):
     def save_image(self) -> None:
         if self.image_bgr is None:
             return
-        out = self._render_image(draw_preview=False)  # finální bez preview čísla
+    
+        # Vypočti rozsah čísel pro auto-název
+        first_num = int(self.start_number)
+        last_num = int(self.start_number + max(0, len(self.points) - 1))
+        suggested = f"{first_num}-{last_num}.png"
+    
+        out = self._render_image(draw_preview=False)  # finální otisky bez preview
+    
         fname = self._get_save_filename(
             caption="Uložit výsledek",
             start_dir=str(self.last_dir),
-            filter_str="PNG (*.png);;JPEG (*.jpg *.jpeg)"
+            filter_str="PNG (*.png);;JPEG (*.jpg *.jpeg)",
+            suggested_name=suggested
         )
         if not fname:
             return
+    
+        # Dodej příponu .png, pokud uživatel žádnou nezvolil
+        if Path(fname).suffix.lower() not in {".png", ".jpg", ".jpeg"}:
+            fname = f"{fname}.png"
+    
         ok = cv2.imwrite(fname, out)
         if ok:
-            QMessageBox.information(self, "Uloženo", "Obrázek byl uložen.")
+            self.last_dir = Path(fname).parent
+            QMessageBox.information(self, "Uloženo", f"Obrázek byl uložen jako:\n{Path(fname).name}")
         else:
             QMessageBox.critical(self, "Chyba", "Ukládání selhalo.")
 

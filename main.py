@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-__version__ = "3.1e"
+__version__ = "3.1h"
 __changelog__ = """
-v3.1e (2025-10-28)
-- Fix: náhled čísla se plynule pohybuje s kurzorem (správné pořadí výpočtu scale/offset).
+v3.1h (2025-10-28)
+- macOS: nativní file dialog (klik ihned), save: návrh názvu '<první>-<poslední>.png'.
 """
 
 import sys
