@@ -2613,13 +2613,13 @@ class MissingPhotosWidget(QWidget):
                     continue
     
                 dst = target_dir / src.name
-                # kolize v cíli: _001.._999
-                if dst.exists():
+                # kolize v cíli: _001.._999 — přidávej suffix jen pokud v cíli už je SOUBOR
+                if dst.is_file():  # ⟵ změna z .exists() na .is_file()
                     stem, suf = dst.stem, dst.suffix
                     i = 1
                     while i <= 999:
                         cand = target_dir / f"{stem}_{i}{suf}"
-                        if not cand.exists():
+                        if not cand.is_file():  # ⟵ změna z .exists() na .is_file()
                             dst = cand
                             break
                         i += 1
@@ -2647,13 +2647,13 @@ class MissingPhotosWidget(QWidget):
                 # 3) Přejmenování v cíli na „<číslo>++++NE+.HEIC“
                 if cid_val is not None:
                     target_renamed = target_dir / f"{cid_val}++++NE+.HEIC"
-                    if target_renamed.exists():
+                    if target_renamed.is_file():  # ⟵ změna z .exists() na .is_file()
                         base = target_renamed.stem
                         ext = target_renamed.suffix
                         i = 1
                         while i <= 999:
                             cand = target_dir / f"{base}_{i}{ext}"
-                            if not cand.exists():
+                            if not cand.is_file():  # ⟵ změna z .exists() na .is_file()
                                 target_renamed = cand
                                 break
                             i += 1
@@ -2692,19 +2692,19 @@ class MissingPhotosWidget(QWidget):
             try:
                 self.remove_numbers_from_states_config(moved_ids)
             except Exception:
-                pass        # === anonymizace: odebrat čísla i z „🛡️ JSON anonymizace“
+                pass
+    
+            # === anonymizace: odebrat čísla i z „🛡️ JSON anonymizace“
             try:
                 self.remove_numbers_from_anonym_config(moved_ids)
             except Exception:
                 pass
-            # --- konec doplněného bloku ---
     
         QMessageBox.information(
             self,
             "Přesun do „Ořezy“",
             f"Přesunuto: {moved}\nPřeskočeno: {skipped}\nChyb: {failed}\nCíl: {target_dir}"
         )
-
 
     def remove_numbers_from_anonym_config(self, numbers: list[int]) -> None:
         """
