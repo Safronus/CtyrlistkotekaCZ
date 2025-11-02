@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 # --- Version & Changelog ---
-__VERSION__ = "3.2a"
-__CHANGELOG__ = "v3.2a – Počítadlo: velikost a barva textu pro čísla vkládaná do fotek (náhled i otisk)."
+__VERSION__ = "3.2b"
+__CHANGELOG__ = "v3.2b – Počítadlo: UI velikost a barva textu se vždy aplikují (náhled i otisk)."
 
 import sys
 from PySide6.QtWidgets import QApplication

@@ -141,6 +141,8 @@ shiboken6==6.7.3
 ---
 
 ## Changelog
+- **v3.2b – 2025-11-02**  
+  - Počítadlo čtyřlístků: oprava – UI **velikost** a **barva** textu se nyní uplatní vždy (náhled i otisk), i když starší kód předává vlastní defaulty.
 - **v3.2a – 2025-11-02**
   - Počítadlo čtyřlístků: přidána volba **velikosti textu** (px) a **barvy textu** (dialog) pro čísla vkládaná do fotek.
 
