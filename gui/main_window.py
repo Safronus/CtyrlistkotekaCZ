@@ -1401,17 +1401,85 @@ class FourLeafCounterWidget(QWidget):
     
         return canvas
 
-    def _put_centered_text_with_outline(
-        self,
-        draw,
-        center_xy,
-        text: str,
-        fill=None,
-        outline_fill=(0, 0, 0, 255),
-        outline_width: int = 2,
-        font_size_px: int | None = None
-    ) -> None:
-        self._put_text_with_outline(
+    def _ensure_pil_draw(self, draw_or_image):
+        """
+        Vrátí PIL.ImageDraw.Draw pro zadaný objekt (už Draw, PIL.Image nebo np.array).
+        """
+        try:
+            # už je to ImageDraw.Draw?
+            from PIL import Image, ImageDraw
+            if hasattr(draw_or_image, "text") and hasattr(draw_or_image, "line"):
+                return draw_or_image
+            # PIL.Image?
+            if hasattr(draw_or_image, "mode") and hasattr(draw_or_image, "size"):
+                return ImageDraw.Draw(draw_or_image)
+            # fallback: zkusíme np.array
+            try:
+                import numpy as np  # noqa: F401
+                from PIL import Image as PILImage
+                return ImageDraw.Draw(PILImage.fromarray(draw_or_image))
+            except Exception:
+                pass
+        except Exception:
+            pass
+        raise TypeError("Nepodporovaný typ plátna/náhledu při kreslení textu.")
+
+    def _put_centered_text_with_outline(self, *args, **kwargs) -> None:
+        """
+        ZPĚTNĚ KOMPATIBILNÍ WRAPPER.
+        Podpora 2 způsobů volání:
+    
+        (A) STARÉ:
+            self._put_centered_text_with_outline(canvas, "12", (x, y), font, font_scale, font_thickness)
+    
+        (B) NOVÉ:
+            self._put_centered_text_with_outline(draw, (x, y), "12",
+                fill=(r,g,b,a), outline_fill=(0,0,0,255), outline_width=2, font_size_px=..., ...)
+    
+        Vždy prosadí barvu/velikost z UI (viz self._prefer_ui_text_style=True).
+        """
+        # defaulty (mohou se přepsat kwargs)
+        fill         = kwargs.get("fill", None)
+        outline_fill = kwargs.get("outline_fill", (0, 0, 0, 255))
+        outline_width = kwargs.get("outline_width", 2)
+        font_size_px = kwargs.get("font_size_px", None)
+    
+        # Rozpoznání STARÉHO podpisu: (canvas, str, (x,y), ...)
+        if len(args) >= 3 and isinstance(args[1], str) and isinstance(args[2], (tuple, list)):
+            draw = self._ensure_pil_draw(args[0])
+            text = args[1]
+            center_xy = tuple(args[2])
+    
+            # Pokud je 6. parametr (thickness), použijeme ho jen jako outline_width (nepovinné)
+            if len(args) >= 6 and "outline_width" not in kwargs:
+                try:
+                    outline_width = int(args[5])
+                except Exception:
+                    pass
+    
+            # Vykreslení (UI hodnoty mají prioritu díky _put_text_with_outline)
+            return self._put_text_with_outline(
+                draw=draw,
+                xy=center_xy,
+                text=text,
+                fill=fill,
+                outline_fill=outline_fill,
+                outline_width=outline_width,
+                font_size_px=font_size_px,
+                anchor="mm",
+            )
+    
+        # NOVÝ podpis: očekáváme (draw, (x,y), "text") nebo kwargs
+        if len(args) >= 3:
+            draw       = self._ensure_pil_draw(args[0])
+            center_xy  = tuple(args[1])
+            text       = args[2]
+        else:
+            draw       = self._ensure_pil_draw(kwargs["draw"])
+            center_xy  = tuple(kwargs["center_xy"])
+            text       = kwargs["text"]
+    
+        return self._put_text_with_outline(
             draw=draw,
             xy=center_xy,
             text=text,

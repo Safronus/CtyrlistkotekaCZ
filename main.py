@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 # --- Version & Changelog ---
-__VERSION__ = "3.2b"
-__CHANGELOG__ = "v3.2b – Počítadlo: UI velikost a barva textu se vždy aplikují (náhled i otisk)."
+__VERSION__ = "3.2c"
+__CHANGELOG__ = "v3.2c – FourLeaf hotfix: kompatibilní wrapper pro vkládání čísel, oprava pádu a jisté použití UI barvy/velikosti."
 
 import sys
 from PySide6.QtWidgets import QApplication

@@ -141,6 +141,11 @@ shiboken6==6.7.3
 ---
 
 ## Changelog
+- **v3.2c – 2025-11-02**
+  - Počítadlo čtyřlístků: hotfix pádu při pohybu myší po prvním kliknutí.
+    Přidán zpětně kompatibilní wrapper `_put_centered_text_with_outline(...)`
+    (akceptuje starý podpis volání) a helper `_ensure_pil_draw(...)`.
+    Velikost/barva textu z UI se uplatní v náhledu i v otisku.
 - **v3.2b – 2025-11-02**  
   - Počítadlo čtyřlístků: oprava – UI **velikost** a **barva** textu se nyní uplatní vždy (náhled i otisk), i když starší kód předává vlastní defaulty.
 - **v3.2a – 2025-11-02**
