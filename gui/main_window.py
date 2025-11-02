@@ -945,7 +945,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtWidgets import QApplication
 
-APP_VERSION = "3.2"
+APP_VERSION = "3.2a"
 FOURLEAF_DEFAULT_DIR = Path("/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Čtyřlístky na sušičce/")
 
 class FLClickableLabel(QLabel):
@@ -1037,6 +1037,121 @@ class FourLeafCounterWidget(QWidget):
         # Zkratky (standardní klávesy → na macOS = ⌘Z/⌘S)
         QShortcut(QKeySequence(QKeySequence.StandardKey.Undo), self, activated=self.undo_last)
         QShortcut(QKeySequence(QKeySequence.StandardKey.Save), self, activated=self.save_image)
+        
+        self._ensure_text_controls()
+        
+    def _ensure_text_controls(self) -> None:
+        """
+        Vloží do docku Počítadla panel 'Text' se spinboxem velikosti (px) a tlačítkem pro výběr barvy.
+        Snaží se najít existující ovládací panel; při neúspěchu vloží na konec hlavního layoutu widgetu.
+        """
+        from PySide6.QtWidgets import (
+            QGroupBox, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QSpinBox, QWidget
+        )
+        from PySide6.QtGui import QColor
+    
+        # --- výchozí hodnoty (pokud ještě nejsou)
+        if not hasattr(self, "text_size_px"):
+            self.text_size_px: int = 64  # bezpečná výška pro fotky; lze hned změnit
+        if not hasattr(self, "text_color_rgba"):
+            # výchozí bílá (s outline se dobře čte)
+            self.text_color_rgba: tuple[int, int, int, int] = (255, 255, 255, 255)
+    
+        # --- najdi layout, kam to dát (neinvazivně)
+        target_layout = None
+        for cand in ("controls_bar", "options_layout", "right_panel_layout", "main_vbox"):
+            lay = getattr(self, cand, None)
+            if hasattr(lay, "addWidget"):
+                target_layout = lay
+                break
+            if isinstance(lay, QWidget) and lay.layout() and hasattr(lay.layout(), "addWidget"):
+                target_layout = lay.layout()
+                break
+        if target_layout is None:
+            target_layout = self.layout()  # fallback: kořen
+            if target_layout is None:
+                target_layout = QVBoxLayout(self)
+                self.setLayout(target_layout)
+    
+        # --- skupina "Text"
+        box = QGroupBox("Text", self)
+        hl = QHBoxLayout(box)
+    
+        # Velikost (px)
+        lbl_px = QLabel("Velikost (px):", box)
+        self.spin_text_px = QSpinBox(box)
+        self.spin_text_px.setRange(8, 256)
+        self.spin_text_px.setSingleStep(2)
+        self.spin_text_px.setValue(int(self.text_size_px))
+        self.spin_text_px.valueChanged.connect(self._on_text_px_changed)
+    
+        # Barva (tlačítko + ukázka)
+        self.btn_text_color = QPushButton("Barva…", box)
+        self.btn_text_color.clicked.connect(self._on_pick_text_color)
+    
+        self.lbl_text_color_sample = QLabel("  ", box)
+        self.lbl_text_color_sample.setFixedWidth(28)
+        self.lbl_text_color_sample.setFixedHeight(18)
+        self._update_text_color_sample()
+    
+        # Sestavit
+        hl.addWidget(lbl_px)
+        hl.addWidget(self.spin_text_px)
+        hl.addSpacing(8)
+        hl.addWidget(self.btn_text_color)
+        hl.addWidget(self.lbl_text_color_sample)
+        hl.addStretch(1)
+    
+        # Přidat do cílového layoutu
+        if hasattr(target_layout, "addWidget"):
+            target_layout.addWidget(box)
+        else:
+            # nouzově přidáme vlastní vbox a do něj box
+            vbx = QVBoxLayout()
+            vbx.addWidget(box)
+            self.setLayout(vbx)
+            
+    def _on_text_px_changed(self, v: int) -> None:
+        """Změna velikosti textu v pixelech – okamžité překreslení."""
+        try:
+            self.text_size_px = int(v)
+        except Exception:
+            self.text_size_px = 64
+        # Překreslit náhled (i display image, pokud to používáš)
+        try:
+            self.render()
+        except Exception:
+            pass
+    
+    
+    def _on_pick_text_color(self) -> None:
+        """Změna barvy textu přes QColorDialog – okamžité překreslení a vzorek."""
+        from PySide6.QtWidgets import QColorDialog
+        qc = QColorDialog.getColor(parent=self, title="Barva textu čísel")
+        if not qc.isValid():
+            return
+        self.text_color_rgba = self._qcolor_to_rgba(qc)
+        self._update_text_color_sample()
+        try:
+            self.render()
+        except Exception:
+            pass
+    
+    
+    def _qcolor_to_rgba(self, qc) -> tuple[int, int, int, int]:
+        """Pomocná konverze QColor → RGBA tuple."""
+        return (qc.red(), qc.green(), qc.blue(), qc.alpha())
+    
+    
+    def _update_text_color_sample(self) -> None:
+        """Aktualizace malé ukázky barvy vedle tlačítka 'Barva…'."""
+        r, g, b, a = self.text_color_rgba
+        # bez ohledu na alpha, vzorek barvy
+        css = f"background-color: rgba({r},{g},{b},1.0); border: 1px solid #888; border-radius: 4px;"
+        try:
+            self.lbl_text_color_sample.setStyleSheet(css)
+        except Exception:
+            pass
         
     def _get_open_filename(self, caption: str, start_dir: str, filter_str: str) -> str:
         """
@@ -1300,29 +1415,73 @@ class FourLeafCounterWidget(QWidget):
     
         return canvas
 
-    def _put_centered_text_with_outline(self, img: np.ndarray, text: str, center: Tuple[int, int],
-                                        font, scale: float, thickness: int) -> None:
+    def _put_centered_text_with_outline(
+        self,
+        draw,                  # PIL.ImageDraw.Draw
+        center_xy,             # (cx, cy)
+        text: str,
+        fill=None,             # když None → self.text_color_rgba
+        outline_fill=(0, 0, 0, 255),
+        outline_width: int = 2,
+        font_size_px: int | None = None
+    ) -> None:
         """
-        Nakreslí text tak, aby jeh o STŘED ležel přesně v 'center'.
-        (OpenCV kreslí od levého rohu na baseline → srovnání přes getTextSize.)
+        Cestou přes _put_text_with_outline() s anchor='mm' vykreslí text středem do bodu center_xy.
         """
-        (w, h), _ = cv2.getTextSize(text, font, scale, thickness)
-        cx, cy = int(center[0]), int(center[1])
-        org_x = int(round(cx - w / 2.0))
-        org_y = int(round(cy + h / 2.0))  # baseline = střed + h/2
-    
-        # černý obrys (o něco silnější)
-        cv2.putText(img, text, (org_x, org_y), font, scale, (0, 0, 0), thickness + 4, cv2.LINE_AA)
-        # bílá výplň
-        cv2.putText(img, text, (org_x, org_y), font, scale, (255, 255, 255), thickness, cv2.LINE_AA)
+        self._put_text_with_outline(
+            draw=draw,
+            xy=center_xy,
+            text=text,
+            fill=fill,
+            outline_fill=outline_fill,
+            outline_width=outline_width,
+            font_size_px=font_size_px,
+            anchor="mm",
+        )
         
     @staticmethod
-    def _put_text_with_outline(img: np.ndarray, text: str, org: Tuple[int, int], font, scale: float, thickness: int) -> None:
-        x, y = int(org[0]), int(org[1])
-        # černý obrys (silnější)
-        cv2.putText(img, text, (x, y), font, scale, (0, 0, 0), thickness + 4, cv2.LINE_AA)
-        # bílý text
-        cv2.putText(img, text, (x, y), font, scale, (255, 255, 255), thickness, cv2.LINE_AA)
+    def _put_text_with_outline(
+        self,
+        draw,                 # PIL.ImageDraw.Draw
+        xy,                   # (x, y)
+        text: str,
+        fill=None,            # RGBA nebo None → použij self.text_color_rgba
+        outline_fill=(0, 0, 0, 255),
+        outline_width: int = 2,
+        font_size_px: int | None = None,
+        anchor: str = "mm"    # "mm" = middle/middle (střed), zachováme default
+    ) -> None:
+        """
+        Vykreslí text s tmavým obrysem, aby byl čitelný na různém pozadí.
+        - Když fill/font_size_px není předán, použije se self.text_color_rgba / self.text_size_px.
+        - anchor="mm" znamená středový bod v (x,y).
+        """
+        from PIL import ImageFont
+    
+        if fill is None:
+            fill = getattr(self, "text_color_rgba", (255, 255, 255, 255))
+        if font_size_px is None:
+            font_size_px = getattr(self, "text_size_px", 64)
+    
+        # Volba písma: Menlo (macOS) → fallback na default
+        font = None
+        for cand in ["Menlo.ttf", "Menlo.ttc", "Helvetica.ttc", "Arial.ttf"]:
+            try:
+                font = ImageFont.truetype(cand, font_size_px)
+                break
+            except Exception:
+                font = None
+        if font is None:
+            font = ImageFont.load_default()
+    
+        # Nejprve outline (kruh posunů kolem textu)
+        ox = outline_width
+        outline_offsets = [(-ox, 0), (ox, 0), (0, -ox), (0, ox), (-ox, -ox), (-ox, ox), (ox, -ox), (ox, ox)]
+        for dx, dy in outline_offsets:
+            draw.text((xy[0] + dx, xy[1] + dy), text, font=font, fill=outline_fill, anchor=anchor)
+    
+        # Pak samotný text
+        draw.text(xy, text, font=font, fill=fill, anchor=anchor)
 
     def _map_label_to_image(self, pos: QPoint) -> Optional[Tuple[int, int]]:
         """Převod souřadnic v QLabel → na originální obrázek (bereme v úvahu scale + odsazení při centrování)."""
