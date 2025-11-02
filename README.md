@@ -141,6 +141,12 @@ shiboken6==6.7.3
 ---
 
 ## Changelog
+- **v3.2f – 2025-11-02**
+  - Počítadlo čtyřlístků: oprava aplikace **velikosti textu** – při změně px se nově přepočítá
+    `font_scale` a `font_thickness` pro OpenCV, takže velikost se projeví v náhledu i v otisku.
+- **v3.2e – 2025-11-02**
+  - Počítadlo čtyřlístků: fix zápisu čísel do fotky – pokud je canvas `numpy.ndarray`, text se kreslí
+    in-place přes OpenCV (centrování, obrys i barva/velikost z UI). PIL větev zachována pro `PIL.Image`.
 - **v3.2d – 2025-11-02**
   - Počítadlo čtyřlístků: hotfix pádu „missing self“ při starém volání `_put_centered_text_with_outline`.
     Wrapper nyní volá implementaci přes `type(self)._put_text_with_outline(self, ...)`, což obchází

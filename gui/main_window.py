@@ -1040,6 +1040,62 @@ class FourLeafCounterWidget(QWidget):
         
         self._ensure_text_controls()
         self._prefer_ui_text_style = True
+        if not hasattr(self, "text_size_px"):
+            self.text_size_px = 64
+        if not hasattr(self, "text_color_rgba"):
+            self.text_color_rgba = (255, 255, 255, 255)
+            
+    def _draw_text_center_cv2(
+        self,
+        canvas,               # numpy.ndarray (H, W, 3/4), BGR(A)
+        center_xy,            # (cx, cy) v pixelech
+        text: str,
+        color_rgba: tuple[int, int, int, int],
+        font_size_px: int,
+        outline_width: int = 2
+    ) -> None:
+        """
+        Kreslí text centrovaný do (cx, cy) přímo do numpy pole (OpenCV), in-place.
+        Vykreslí nejprve obrys (černý), pak text barvou z UI.
+        Preferuje self.font_scale a self.font_thickness (pokud byly
+        synchronizovány z px), jinak je dopočítá z font_size_px.
+        """
+        import cv2
+    
+        cx, cy = int(round(center_xy[0])), int(round(center_xy[1]))
+        r, g, b, a = color_rgba
+        color_bgr = (int(b), int(g), int(r))  # cv2 = BGR
+    
+        font_face = cv2.FONT_HERSHEY_SIMPLEX
+    
+        # 1) Preferuj škálování/thickness ze stavu UI (legacy parametry pro cv2)
+        scale = float(getattr(self, "font_scale", 0.0))
+        fill_th = int(getattr(self, "font_thickness", 0))
+    
+        # 2) Fallback: dopočítej z požadované výšky v pixelech
+        if scale <= 0.0 or fill_th <= 0:
+            approx_scale = max(0.1, float(font_size_px) / 30.0)
+            fill_th = max(1, int(round(font_size_px / 16)))
+            (_, h0), _ = cv2.getTextSize("8", font_face, approx_scale, fill_th)
+            if h0 > 0:
+                scale = float(font_size_px) / float(h0)
+            else:
+                scale = approx_scale
+    
+        # outline je výraznější než výplň
+        out_th = max(1, int(round(max(outline_width, fill_th * 2))))
+    
+        # Rozměr textu pro centrování
+        (tw, th), baseline = cv2.getTextSize(text, font_face, scale, fill_th)
+        x = int(round(cx - tw / 2))
+        y = int(round(cy + th / 2))  # baseline ≈ střed + půl výšky
+    
+        # Obrys (černý)
+        cv2.putText(canvas, text, (x, y), font_face, scale, (0, 0, 0),
+                    thickness=out_th, lineType=cv2.LINE_AA)
+        # Výplň (zvolená barva)
+        cv2.putText(canvas, text, (x, y), font_face, scale, color_bgr,
+                    thickness=fill_th, lineType=cv2.LINE_AA)
         
     def _ensure_text_controls(self) -> None:
         """
@@ -1107,11 +1163,25 @@ class FourLeafCounterWidget(QWidget):
         # DŮLEŽITÉ: Prosazuj UI styl textu při kreslení (viz helpery níže)
         self._prefer_ui_text_style = True
         
+        try:
+            self._sync_legacy_cv2_scale_from_px(getattr(self, "text_size_px", 64))
+        except Exception:
+            pass
+        
     def _on_text_px_changed(self, v: int) -> None:
+        """Změna velikosti textu v pixelech – přepočet OpenCV parametrů a překreslení."""
         try:
             self.text_size_px = int(v)
         except Exception:
             self.text_size_px = 64
+    
+        # DŮLEŽITÉ: přepočítej scale/thickness pro starý kód i OpenCV větev
+        try:
+            self._sync_legacy_cv2_scale_from_px(self.text_size_px)
+        except Exception:
+            pass
+    
+        # Překreslit náhled
         try:
             self.render()
         except Exception:
@@ -1422,72 +1492,105 @@ class FourLeafCounterWidget(QWidget):
         except Exception:
             pass
         raise TypeError("Nepodporovaný typ plátna/náhledu při kreslení textu.")
+        
+    def _sync_legacy_cv2_scale_from_px(self, px: int) -> None:
+        """
+        Ze zadané výšky textu v pixelech (px) odvodí OpenCV parametry self.font_scale a self.font_thickness
+        tak, aby výsledná výška textu ~ px (pro cv2.FONT_HERSHEY_SIMPLEX).
+        """
+        import cv2
+        px = max(8, int(px))
+        font_face = cv2.FONT_HERSHEY_SIMPLEX
+        thickness = max(1, int(round(px / 16)))  # čitelné obrysy i pro menší px
+    
+        # Změř výšku pro scale=1.0 → odvoď scale lineárně
+        (w_base, h_base), base = cv2.getTextSize("8", font_face, 1.0, thickness)
+        if h_base <= 0:
+            scale = max(0.1, px / 30.0)
+        else:
+            scale = float(px) / float(h_base)
+    
+        self.font_scale = float(scale)
+        self.font_thickness = int(thickness)
 
     def _put_centered_text_with_outline(self, *args, **kwargs) -> None:
         """
-        ZPĚTNĚ KOMPATIBILNÍ WRAPPER.
-        Podpora 2 způsobů volání:
-    
-        (A) STARÉ:
-            self._put_centered_text_with_outline(canvas, "12", (x, y), font, font_scale, font_thickness)
-    
-        (B) NOVÉ:
-            self._put_centered_text_with_outline(draw, (x, y), "12",
-                fill=(r,g,b,a), outline_fill=(0,0,0,255), outline_width=2, font_size_px=...)
-    
-        Vždy prosadí barvu/velikost z UI (viz _put_text_with_outline a self._prefer_ui_text_style).
+        ZPĚTNĚ KOMPATIBILNÍ WRAPPER – umí staré i nové volání, a canvas může být PIL i numpy.
+        (A) STARÉ: self._put_centered_text_with_outline(canvas, "12", (x, y), font, font_scale, font_thickness)
+        (B) NOVÉ : self._put_centered_text_with_outline(draw, (x, y), "12", fill=..., outline_fill=..., outline_width=..., font_size_px=...)
+        Vždy prosazuje UI barvu/velikost (viz _put_text_with_outline a self._prefer_ui_text_style).
         """
-        # Defaulty (lze přepsat kwargs)
-        fill          = kwargs.get("fill", None)
-        outline_fill  = kwargs.get("outline_fill", (0, 0, 0, 255))
-        outline_width = kwargs.get("outline_width", 2)
-        font_size_px  = kwargs.get("font_size_px", None)
+        # UI styl
+        color_rgba = getattr(self, "text_color_rgba", (255, 255, 255, 255))
+        font_px    = int(getattr(self, "text_size_px", 64))
+        outline_w  = int(kwargs.get("outline_width", 2))
     
-        # STARÝ podpis: (canvas, "text", (x,y), font, scale, thickness)
+        # Rozpoznání STARÉHO podpisu
         if len(args) >= 3 and isinstance(args[1], str) and isinstance(args[2], (tuple, list)):
-            draw = self._ensure_pil_draw(args[0])
+            canvas_or_draw = args[0]
             text = args[1]
             center_xy = tuple(args[2])
     
-            # 6. arg (thickness) → outline_width (pokud nepadá z kwargs)
+            # thickness z (starého) 6. parametru → fallback do outline_w
             if len(args) >= 6 and "outline_width" not in kwargs:
                 try:
-                    outline_width = int(args[5])
+                    outline_w = max(outline_w, int(args[5]))
                 except Exception:
                     pass
     
-            # !!! Kritické: volat implementaci přes třídu, ne přes self atribut (může být přestíněn)
+            # Numpy → kresli in-place přes OpenCV
+            try:
+                import numpy as np  # noqa: F401
+                if hasattr(canvas_or_draw, "ndim"):
+                    self._draw_text_center_cv2(canvas_or_draw, center_xy, text, color_rgba, font_px, outline_width=outline_w)
+                    return
+            except Exception:
+                pass
+    
+            # PIL větev (Image nebo Draw) → použij původní helper (s UI prioritou)
+            draw = self._ensure_pil_draw(canvas_or_draw)
             return type(self)._put_text_with_outline(
                 self,
                 draw=draw,
                 xy=center_xy,
                 text=text,
-                fill=fill,
-                outline_fill=outline_fill,
-                outline_width=outline_width,
-                font_size_px=font_size_px,
+                fill=None,
+                outline_fill=(0, 0, 0, 255),
+                outline_width=outline_w,
+                font_size_px=font_px,
                 anchor="mm",
             )
     
         # NOVÝ podpis
         if len(args) >= 3:
-            draw      = self._ensure_pil_draw(args[0])
+            canvas_or_draw = args[0]
             center_xy = tuple(args[1])
-            text      = args[2]
+            text = args[2]
         else:
-            draw      = self._ensure_pil_draw(kwargs["draw"])
+            canvas_or_draw = kwargs["draw"]
             center_xy = tuple(kwargs["center_xy"])
-            text      = kwargs["text"]
+            text = kwargs["text"]
     
+        # Pokud je to numpy → OpenCV in-place
+        try:
+            import numpy as np  # noqa: F401
+            if hasattr(canvas_or_draw, "ndim"):
+                self._draw_text_center_cv2(canvas_or_draw, center_xy, text, color_rgba, font_px, outline_width=outline_w)
+                return
+        except Exception:
+            pass
+    
+        # Jinak PIL
+        draw = self._ensure_pil_draw(canvas_or_draw)
         return type(self)._put_text_with_outline(
             self,
             draw=draw,
             xy=center_xy,
             text=text,
-            fill=fill,
-            outline_fill=outline_fill,
-            outline_width=outline_width,
-            font_size_px=font_size_px,
+            fill=None,
+            outline_fill=(0, 0, 0, 255),
+            outline_width=outline_w,
+            font_size_px=font_px,
             anchor="mm",
         )
         

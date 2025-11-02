@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 # --- Version & Changelog ---
-__VERSION__ = "3.2d"
-__CHANGELOG__ = "v3.2d – FourLeaf hotfix: wrapper volá implementaci přes type(self), odstraněn pád při hover/preview."
+__VERSION__ = "3.2f"
+__CHANGELOG__ = "v3.2f – FourLeaf: velikost textu řízena spinboxem (px) → přepočet cv2 font_scale/thickness; náhled i otisk konzistentní."
 
 import sys
 from PySide6.QtWidgets import QApplication
