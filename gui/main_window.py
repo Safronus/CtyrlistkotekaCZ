@@ -1406,16 +1406,15 @@ class FourLeafCounterWidget(QWidget):
         Vrátí PIL.ImageDraw.Draw pro zadaný objekt (už Draw, PIL.Image nebo np.array).
         """
         try:
-            # už je to ImageDraw.Draw?
-            from PIL import Image, ImageDraw
+            from PIL import ImageDraw, Image
+            # již je to ImageDraw.Draw-like?
             if hasattr(draw_or_image, "text") and hasattr(draw_or_image, "line"):
                 return draw_or_image
             # PIL.Image?
             if hasattr(draw_or_image, "mode") and hasattr(draw_or_image, "size"):
                 return ImageDraw.Draw(draw_or_image)
-            # fallback: zkusíme np.array
+            # numpy array → PIL
             try:
-                import numpy as np  # noqa: F401
                 from PIL import Image as PILImage
                 return ImageDraw.Draw(PILImage.fromarray(draw_or_image))
             except Exception:
@@ -1434,31 +1433,32 @@ class FourLeafCounterWidget(QWidget):
     
         (B) NOVÉ:
             self._put_centered_text_with_outline(draw, (x, y), "12",
-                fill=(r,g,b,a), outline_fill=(0,0,0,255), outline_width=2, font_size_px=..., ...)
+                fill=(r,g,b,a), outline_fill=(0,0,0,255), outline_width=2, font_size_px=...)
     
-        Vždy prosadí barvu/velikost z UI (viz self._prefer_ui_text_style=True).
+        Vždy prosadí barvu/velikost z UI (viz _put_text_with_outline a self._prefer_ui_text_style).
         """
-        # defaulty (mohou se přepsat kwargs)
-        fill         = kwargs.get("fill", None)
-        outline_fill = kwargs.get("outline_fill", (0, 0, 0, 255))
+        # Defaulty (lze přepsat kwargs)
+        fill          = kwargs.get("fill", None)
+        outline_fill  = kwargs.get("outline_fill", (0, 0, 0, 255))
         outline_width = kwargs.get("outline_width", 2)
-        font_size_px = kwargs.get("font_size_px", None)
+        font_size_px  = kwargs.get("font_size_px", None)
     
-        # Rozpoznání STARÉHO podpisu: (canvas, str, (x,y), ...)
+        # STARÝ podpis: (canvas, "text", (x,y), font, scale, thickness)
         if len(args) >= 3 and isinstance(args[1], str) and isinstance(args[2], (tuple, list)):
             draw = self._ensure_pil_draw(args[0])
             text = args[1]
             center_xy = tuple(args[2])
     
-            # Pokud je 6. parametr (thickness), použijeme ho jen jako outline_width (nepovinné)
+            # 6. arg (thickness) → outline_width (pokud nepadá z kwargs)
             if len(args) >= 6 and "outline_width" not in kwargs:
                 try:
                     outline_width = int(args[5])
                 except Exception:
                     pass
     
-            # Vykreslení (UI hodnoty mají prioritu díky _put_text_with_outline)
-            return self._put_text_with_outline(
+            # !!! Kritické: volat implementaci přes třídu, ne přes self atribut (může být přestíněn)
+            return type(self)._put_text_with_outline(
+                self,
                 draw=draw,
                 xy=center_xy,
                 text=text,
@@ -1469,17 +1469,18 @@ class FourLeafCounterWidget(QWidget):
                 anchor="mm",
             )
     
-        # NOVÝ podpis: očekáváme (draw, (x,y), "text") nebo kwargs
+        # NOVÝ podpis
         if len(args) >= 3:
-            draw       = self._ensure_pil_draw(args[0])
-            center_xy  = tuple(args[1])
-            text       = args[2]
+            draw      = self._ensure_pil_draw(args[0])
+            center_xy = tuple(args[1])
+            text      = args[2]
         else:
-            draw       = self._ensure_pil_draw(kwargs["draw"])
-            center_xy  = tuple(kwargs["center_xy"])
-            text       = kwargs["text"]
+            draw      = self._ensure_pil_draw(kwargs["draw"])
+            center_xy = tuple(kwargs["center_xy"])
+            text      = kwargs["text"]
     
-        return self._put_text_with_outline(
+        return type(self)._put_text_with_outline(
+            self,
             draw=draw,
             xy=center_xy,
             text=text,

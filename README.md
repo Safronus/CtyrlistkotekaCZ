@@ -141,6 +141,10 @@ shiboken6==6.7.3
 ---
 
 ## Changelog
+- **v3.2d – 2025-11-02**
+  - Počítadlo čtyřlístků: hotfix pádu „missing self“ při starém volání `_put_centered_text_with_outline`.
+    Wrapper nyní volá implementaci přes `type(self)._put_text_with_outline(self, ...)`, což obchází
+    případné přestínění instančním atributem. UI **velikost** a **barva** textu zůstávají závazné.
 - **v3.2c – 2025-11-02**
   - Počítadlo čtyřlístků: hotfix pádu při pohybu myší po prvním kliknutí.
     Přidán zpětně kompatibilní wrapper `_put_centered_text_with_outline(...)`

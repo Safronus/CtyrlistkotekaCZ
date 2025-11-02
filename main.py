@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 # --- Version & Changelog ---
-__VERSION__ = "3.2c"
-__CHANGELOG__ = "v3.2c – FourLeaf hotfix: kompatibilní wrapper pro vkládání čísel, oprava pádu a jisté použití UI barvy/velikosti."
+__VERSION__ = "3.2d"
+__CHANGELOG__ = "v3.2d – FourLeaf hotfix: wrapper volá implementaci přes type(self), odstraněn pád při hover/preview."
 
 import sys
 from PySide6.QtWidgets import QApplication
