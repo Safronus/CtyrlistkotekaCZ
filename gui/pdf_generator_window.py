@@ -2532,8 +2532,8 @@ class MissingPhotosWidget(QWidget):
         from PySide6.QtCore import Qt
         from PySide6.QtWidgets import QMessageBox
     
-        target_dir = Path("/Users/safronus/Library/Mobile Docume...apple~CloudDocs/Čtyřlístky/Generování PDF/Fotky pro web/Ořezy/")
-        source_root = Path("/Users/safronus/Library/Mobile Docum...ple~CloudDocs/Čtyřlístky/Generování PDF/Obrázky ke zpracování/")
+        target_dir = Path("/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Fotky pro web/Ořezy/")
+        source_root = Path("/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Obrázky ke zpracování/")
         try:
             target_dir.mkdir(parents=True, exist_ok=True)
         except Exception as e:
@@ -2559,106 +2559,245 @@ class MissingPhotosWidget(QWidget):
                 if p.exists():
                     return p
     
-            # 3) fallback – parsování ze zobrazovaného textu položky
+            # 3) tooltip
             try:
-                s = item.text()
-                m = re.search(r"(/Users/[^\\s]+\\.(?:HEIC|JPG|PNG))", s, re.IGNORECASE)
-                if m:
-                    p = Path(m.group(1))
+                tip = item.toolTip()
+                if isinstance(tip, str) and tip:
+                    p = Path(tip)
                     if p.exists():
                         return p
             except Exception:
                 pass
-            return None
     
-        moved = skipped = failed = 0
-        moved_ids: list[int] = []
+            # 4) číslo z textu položky → hledej soubor začínající tímto číslem ve zdrojové složce
+            raw_txt = (item.text() or "").strip()
+            for pref in ("🖼️", "✂️"):
+                if raw_txt.startswith(pref):
+                    raw_txt = raw_txt[len(pref):].lstrip()
     
-        for it in photo_items:
-            src = _extract_path(it)
-            if not src or not src.exists():
-                skipped += 1
-                continue
+            m = re.search(r"\d+", raw_txt)
+            if not m or not source_root.exists():
+                return None
     
+            cid = m.group(0)
+    
+            # Nejprve bez rekurze
             try:
-                # Ověř, že zdroj patří do očekávaného kořene (bezpečnost)
-                try:
-                    src.relative_to(source_root)
-                except Exception:
-                    # Pokud ne, povolíme přesun, ale nebude se počítat do moved_ids
-                    pass
-    
-                # Cílový název (zachovej původní jméno)
-                dst = target_dir / src.name
-    
-                # Pokud existuje, přepiš (přesun = rename zaručí atomicky v rámci FS; jinak fallback copy+unlink)
-                try:
-                    src.replace(dst)
-                except Exception:
-                    import shutil
-                    shutil.copy2(src, dst)
-                    try:
-                        src.unlink()
-                    except Exception:
-                        pass
-    
-                moved += 1
-    
-                # Zkus vyparsovat číslo fotky, pokud je to v názvu (pro odmazání ze stavů)
-                m = re.search(r"(\\d+)", src.stem)
-                if m:
-                    try:
-                        moved_ids.append(int(m.group(1)))
-                    except Exception:
-                        pass
-            except Exception:
-                failed += 1
-    
-        # Po přesunu zkus smazat čísla ze "stavů"
-        if moved_ids:
-            try:
-                self.remove_numbers_from_states_config(moved_ids)
+                for child in source_root.iterdir():
+                    if child.is_file() and child.name.startswith(cid):
+                        return child
             except Exception:
                 pass
     
-        # >>> NOVÉ: Po přesunu do „Ořezy“ vyčistit JSON anonymizace v hlavním okně
-        try:
-            win = getattr(self, "get_pdf_window_parent", None)
-            if callable(win):
-                win = self.get_pdf_window_parent()
-            else:
-                win = self.window()
-            if win is not None and hasattr(win, "anonym_config_text"):
-                # Vypni signály, vyprázdni, zapni signály, refresh a ulož
-                try:
-                    win.anonym_config_text.blockSignals(True)
-                except Exception:
-                    pass
-                win.anonym_config_text.setPlainText('{\n "ANONYMIZOVANE": []\n}')
-                try:
-                    win.anonym_config_text.blockSignals(False)
-                except Exception:
-                    pass
-                if hasattr(win, "update_anonym_photos_list"):
+            # Rekurzivní fallback
+            try:
+                for child in source_root.rglob(f"{cid}*"):
+                    if child.is_file():
+                        return child
+            except Exception:
+                pass
+    
+            return None
+    
+        moved = 0
+        skipped = 0
+        failed = 0
+        moved_items = []
+        moved_ids: list[int] = []  # čísla nálezů, které jsme úspěšně přesunuli (int)
+    
+        for it in photo_items:
+            try:
+                src = _extract_path(it)
+                if src is None or not src.is_file():
+                    failed += 1
+                    continue
+    
+                dst = target_dir / src.name
+                # kolize v cíli: _001.._999
+                if dst.exists():
+                    stem, suf = dst.stem, dst.suffix
+                    i = 1
+                    while i <= 999:
+                        cand = target_dir / f"{stem}_{i}{suf}"
+                        if not cand.exists():
+                            dst = cand
+                            break
+                        i += 1
+                    if i > 999:
+                        failed += 1
+                        continue
+    
+                # 1) Přesun
+                shutil.move(str(src), str(dst))
+    
+                # 2) Získat číslo nálezu
+                cid_val = None
+                m = re.match(r"(\d+)", src.stem)
+                if m:
+                    cid_val = int(m.group(1))
+                else:
+                    raw_txt = (it.text() or "").strip()
+                    for pref in ("🖼️", "✂️"):
+                        if raw_txt.startswith(pref):
+                            raw_txt = raw_txt[len(pref):].lstrip()
+                    m = re.search(r"\d+", raw_txt)
+                    if m:
+                        cid_val = int(m.group(0))
+    
+                # 3) Přejmenování v cíli na „<číslo>++++NE+.HEIC“
+                if cid_val is not None:
+                    target_renamed = target_dir / f"{cid_val}++++NE+.HEIC"
+                    if target_renamed.exists():
+                        base = target_renamed.stem
+                        ext = target_renamed.suffix
+                        i = 1
+                        while i <= 999:
+                            cand = target_dir / f"{base}_{i}{ext}"
+                            if not cand.exists():
+                                target_renamed = cand
+                                break
+                            i += 1
                     try:
-                        win.update_anonym_photos_list()
+                        (target_dir / dst.name).rename(target_renamed)
+                        dst = target_renamed
+                        moved_ids.append(cid_val)
                     except Exception:
+                        # ponecháme původní název, když přejmenování selže
                         pass
-                if hasattr(win, "save_settings"):
-                    try:
-                        win.save_settings()
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-        # <<< KONEC NOVÉHO ÚSEKU
+    
+                moved += 1
+                moved_items.append(it)
+    
+            except Exception:
+                failed += 1
+    
+        # Odstraň přesunuté položky ze seznamu
+        for it in moved_items:
+            try:
+                row = self.list_widget.row(it)
+                self.list_widget.takeItem(row)
+            except Exception:
+                pass
+    
+        # === Odstranění čísel ze všech dotčených JSONů v aktuálním PDF okně ===
+        if moved_ids:
+            try:
+                self.remove_numbers_from_location_config(moved_ids)
+            except Exception:
+                pass
+            try:
+                self.remove_numbers_from_notes_config(moved_ids)
+            except Exception:
+                pass
+            try:
+                self.remove_numbers_from_states_config(moved_ids)
+            except Exception:
+                pass        # === anonymizace: odebrat čísla i z „🛡️ JSON anonymizace“
+            try:
+                self.remove_numbers_from_anonym_config(moved_ids)
+            except Exception:
+                pass
+            # --- konec doplněného bloku ---
     
         QMessageBox.information(
             self,
             "Přesun do „Ořezy“",
             f"Přesunuto: {moved}\nPřeskočeno: {skipped}\nChyb: {failed}\nCíl: {target_dir}"
         )
-        
+
+
+    def remove_numbers_from_anonym_config(self, numbers: list[int]) -> None:
+        """
+        Odebere daná čísla z „🛡️ JSON anonymizace“.
+        Editor: <PdfGeneratorWindow>.anonym_config_text (vytvořen v create_anonymization_tab)
+        Intervaly v 'ANONYMIZOVANE' jsou rozšířeny a znovu složeny (stejně jako v _action_anonymize).
+        Formátování: self._format_json_compact_fixed
+        Refresh: window.update_anonym_photos_list() (pokud existuje)
+        """
+        import json
+        from PySide6.QtWidgets import QPlainTextEdit, QTextEdit
+    
+        window = self.window()  # rodičovské PDF okno
+        if window is None:
+            return
+    
+        editor = getattr(window, "anonym_config_text", None)
+        if not isinstance(editor, (QPlainTextEdit, QTextEdit)) or not hasattr(editor, "toPlainText"):
+            return
+    
+        raw = (editor.toPlainText() or "").strip()
+        try:
+            data = json.loads(raw) if raw else {}
+        except Exception:
+            return
+        if not isinstance(data, dict):
+            return
+    
+        # vstupní čísla
+        ids = {int(n) for n in numbers if str(n).isdigit()}
+        if not ids:
+            return
+    
+        # získej stávající pole a rozšiř na množinu čísel
+        intervals = data.get("ANONYMIZOVANE", [])
+        try:
+            existing = self._expand_intervals(intervals)
+        except Exception:
+            # bezpečný fallback
+            existing = set()
+            for tok in intervals or []:
+                s = str(tok).strip()
+                if not s:
+                    continue
+                if "-" in s:
+                    try:
+                        a, b = s.split("-", 1)
+                        ai, bi = int(a.strip()), int(b.strip())
+                        if ai > bi:
+                            ai, bi = bi, ai
+                        existing.update(range(ai, bi + 1))
+                    except Exception:
+                        pass
+                elif s.isdigit():
+                    existing.add(int(s))
+    
+        # odečti čísla a znovu slož do intervalů
+        remain = sorted(existing - ids)
+        try:
+            merged = self._merge_to_intervals(remain)
+        except Exception:
+            # jednoduchý fallback
+            if not remain:
+                merged = []
+            else:
+                # sloučení sousedních hodnot
+                out, start = [], remain[0]
+                prev = start
+                for v in remain[1:]:
+                    if v == prev + 1:
+                        prev = v
+                    else:
+                        out.append(str(start) if start == prev else f"{start}-{prev}")
+                        start = prev = v
+                out.append(str(start) if start == prev else f"{start}-{prev}")
+                merged = out
+    
+        data["ANONYMIZOVANE"] = merged
+    
+        # zapiš zpět v kompaktním formátu
+        try:
+            formatted = self._format_json_compact_fixed(data)
+        except Exception:
+            formatted = json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True)
+        editor.setPlainText(formatted)
+    
+        # refresh případných navázaných seznamů
+        refresher = getattr(window, "update_anonym_photos_list", None)
+        if callable(refresher):
+            try:
+                refresher()
+            except Exception:
+                pass        
     # FILE: gui/pdf_generator_window.py
     # CLASS: MissingPhotosWidget
     # FUNCTION: remove_numbers_from_location_config
