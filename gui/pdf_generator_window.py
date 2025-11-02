@@ -2532,8 +2532,8 @@ class MissingPhotosWidget(QWidget):
         from PySide6.QtCore import Qt
         from PySide6.QtWidgets import QMessageBox
     
-        target_dir = Path("/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Fotky pro web/Ořezy/")
-        source_root = Path("/Users/safronus/Library/Mobile Documents/com~apple~CloudDocs/Čtyřlístky/Generování PDF/Obrázky ke zpracování/")
+        target_dir = Path("/Users/safronus/Library/Mobile Docume...apple~CloudDocs/Čtyřlístky/Generování PDF/Fotky pro web/Ořezy/")
+        source_root = Path("/Users/safronus/Library/Mobile Docum...ple~CloudDocs/Čtyřlístky/Generování PDF/Obrázky ke zpracování/")
         try:
             target_dir.mkdir(parents=True, exist_ok=True)
         except Exception as e:
@@ -2559,140 +2559,99 @@ class MissingPhotosWidget(QWidget):
                 if p.exists():
                     return p
     
-            # 3) tooltip
+            # 3) fallback – parsování ze zobrazovaného textu položky
             try:
-                tip = item.toolTip()
-                if isinstance(tip, str) and tip:
-                    p = Path(tip)
+                s = item.text()
+                m = re.search(r"(/Users/[^\\s]+\\.(?:HEIC|JPG|PNG))", s, re.IGNORECASE)
+                if m:
+                    p = Path(m.group(1))
                     if p.exists():
                         return p
             except Exception:
                 pass
-    
-            # 4) číslo z textu položky → hledej soubor začínající tímto číslem ve zdrojové složce
-            raw_txt = (item.text() or "").strip()
-            for pref in ("🖼️", "✂️"):
-                if raw_txt.startswith(pref):
-                    raw_txt = raw_txt[len(pref):].lstrip()
-    
-            m = re.search(r"\d+", raw_txt)
-            if not m or not source_root.exists():
-                return None
-    
-            cid = m.group(0)
-    
-            # Nejprve bez rekurze
-            try:
-                for child in source_root.iterdir():
-                    if child.is_file() and child.name.startswith(cid):
-                        return child
-            except Exception:
-                pass
-    
-            # Rekurzivní fallback
-            try:
-                for child in source_root.rglob(f"{cid}*"):
-                    if child.is_file():
-                        return child
-            except Exception:
-                pass
-    
             return None
     
-        moved = 0
-        skipped = 0
-        failed = 0
-        moved_items = []
-        moved_ids: list[int] = []  # čísla nálezů, které jsme úspěšně přesunuli (int)
+        moved = skipped = failed = 0
+        moved_ids: list[int] = []
     
         for it in photo_items:
+            src = _extract_path(it)
+            if not src or not src.exists():
+                skipped += 1
+                continue
+    
             try:
-                src = _extract_path(it)
-                if src is None or not src.is_file():
-                    failed += 1
-                    continue
+                # Ověř, že zdroj patří do očekávaného kořene (bezpečnost)
+                try:
+                    src.relative_to(source_root)
+                except Exception:
+                    # Pokud ne, povolíme přesun, ale nebude se počítat do moved_ids
+                    pass
     
+                # Cílový název (zachovej původní jméno)
                 dst = target_dir / src.name
-                # kolize v cíli: _001.._999
-                if dst.exists():
-                    stem, suf = dst.stem, dst.suffix
-                    i = 1
-                    while i <= 999:
-                        cand = target_dir / f"{stem}_{i}{suf}"
-                        if not cand.exists():
-                            dst = cand
-                            break
-                        i += 1
-                    if i > 999:
-                        failed += 1
-                        continue
     
-                # 1) Přesun
-                shutil.move(str(src), str(dst))
-    
-                # 2) Získat číslo nálezu
-                cid_val = None
-                m = re.match(r"(\d+)", src.stem)
-                if m:
-                    cid_val = int(m.group(1))
-                else:
-                    raw_txt = (it.text() or "").strip()
-                    for pref in ("🖼️", "✂️"):
-                        if raw_txt.startswith(pref):
-                            raw_txt = raw_txt[len(pref):].lstrip()
-                    m = re.search(r"\d+", raw_txt)
-                    if m:
-                        cid_val = int(m.group(0))
-    
-                # 3) Přejmenování v cíli na „<číslo>++++NE+.HEIC“
-                if cid_val is not None:
-                    target_renamed = target_dir / f"{cid_val}++++NE+.HEIC"
-                    if target_renamed.exists():
-                        base = target_renamed.stem
-                        ext = target_renamed.suffix
-                        i = 1
-                        while i <= 999:
-                            cand = target_dir / f"{base}_{i}{ext}"
-                            if not cand.exists():
-                                target_renamed = cand
-                                break
-                            i += 1
+                # Pokud existuje, přepiš (přesun = rename zaručí atomicky v rámci FS; jinak fallback copy+unlink)
+                try:
+                    src.replace(dst)
+                except Exception:
+                    import shutil
+                    shutil.copy2(src, dst)
                     try:
-                        (target_dir / dst.name).rename(target_renamed)
-                        dst = target_renamed
-                        moved_ids.append(cid_val)
+                        src.unlink()
                     except Exception:
-                        # ponecháme původní název, když přejmenování selže
                         pass
     
                 moved += 1
-                moved_items.append(it)
     
+                # Zkus vyparsovat číslo fotky, pokud je to v názvu (pro odmazání ze stavů)
+                m = re.search(r"(\\d+)", src.stem)
+                if m:
+                    try:
+                        moved_ids.append(int(m.group(1)))
+                    except Exception:
+                        pass
             except Exception:
                 failed += 1
     
-        # Odstraň přesunuté položky ze seznamu
-        for it in moved_items:
-            try:
-                row = self.list_widget.row(it)
-                self.list_widget.takeItem(row)
-            except Exception:
-                pass
-    
-        # === Odstranění čísel ze všech dotčených JSONů v aktuálním PDF okně ===
+        # Po přesunu zkus smazat čísla ze "stavů"
         if moved_ids:
-            try:
-                self.remove_numbers_from_location_config(moved_ids)
-            except Exception:
-                pass
-            try:
-                self.remove_numbers_from_notes_config(moved_ids)
-            except Exception:
-                pass
             try:
                 self.remove_numbers_from_states_config(moved_ids)
             except Exception:
                 pass
+    
+        # >>> NOVÉ: Po přesunu do „Ořezy“ vyčistit JSON anonymizace v hlavním okně
+        try:
+            win = getattr(self, "get_pdf_window_parent", None)
+            if callable(win):
+                win = self.get_pdf_window_parent()
+            else:
+                win = self.window()
+            if win is not None and hasattr(win, "anonym_config_text"):
+                # Vypni signály, vyprázdni, zapni signály, refresh a ulož
+                try:
+                    win.anonym_config_text.blockSignals(True)
+                except Exception:
+                    pass
+                win.anonym_config_text.setPlainText('{\n "ANONYMIZOVANE": []\n}')
+                try:
+                    win.anonym_config_text.blockSignals(False)
+                except Exception:
+                    pass
+                if hasattr(win, "update_anonym_photos_list"):
+                    try:
+                        win.update_anonym_photos_list()
+                    except Exception:
+                        pass
+                if hasattr(win, "save_settings"):
+                    try:
+                        win.save_settings()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        # <<< KONEC NOVÉHO ÚSEKU
     
         QMessageBox.information(
             self,

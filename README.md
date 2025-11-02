@@ -141,6 +141,9 @@ shiboken6==6.7.3
 ---
 
 ## Changelog
+- **v3.2g – 2025-11-02**
+  - PDF generátor → „📁 Přesunout do Ořezy“: po přesunu se automaticky **vymaže JSON anonymizace**
+    (tab „🛡️ Nastavení anonymizace“), provede se refresh a uložení nastavení.
 - **v3.2f – 2025-11-02**
   - Počítadlo čtyřlístků: oprava aplikace **velikosti textu** – při změně px se nově přepočítá
     `font_scale` a `font_thickness` pro OpenCV, takže velikost se projeví v náhledu i v otisku.

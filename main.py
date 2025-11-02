@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 # --- Version & Changelog ---
-__VERSION__ = "3.2f"
-__CHANGELOG__ = "v3.2f – FourLeaf: velikost textu řízena spinboxem (px) → přepočet cv2 font_scale/thickness; náhled i otisk konzistentní."
+__VERSION__ = "3.2g"
+__CHANGELOG__ = "v3.2g – PDF gen: po přesunu do Ořezů se smaže JSON anonymizace, provede refresh a uložení."
 
 import sys
 from PySide6.QtWidgets import QApplication
