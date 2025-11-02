@@ -168,14 +168,14 @@ Báze: QDialog
 | `self.btn_save` | `_on_save` |
 | `self._sc_close` | `close` |
 
-### 4.2 QShortcut
-| Sekvence | Slot |
+### 4.2 Zkratky (QShortcut / QAction.setShortcut)
+| Sekvence | Zdroj |
 |---|---|
-| `QKeySequence.Close` | `reject` |
-| `QKeySequence.Close` | `` |
-| `QKeySequence.Close` | `reject` |
-| `QKeySequence.Copy` | `copy_polygon_to_clipboard` |
-| `QKeySequence.Paste` | `paste_polygon_from_clipboard` |
+| `QKeySequence.Close` | QShortcut |
+| `QKeySequence.Close` | QShortcut |
+| `QKeySequence.Close` | QShortcut |
+| `QKeySequence.Copy` | QShortcut |
+| `QKeySequence.Paste` | QShortcut |
 
 ### 4.3 QAction
 _—_
@@ -189,9 +189,33 @@ _—_
 ## 6. Vazby na další soubory
 image_viewer, map_processor
 
+
+### 7. QA scénáře (smoke test)
+1. Otevři náhled HEIC (mezerník) → **Upravit polygon**.
+2. Přepni **Vymalovat (štětcem)** (checkbox) → kurzor je kolečko v barvě polygonu, výchozí 5 px.
+3. Tahem myši vybarvuj plochu; zvy̌š/sniž štětec (spinbox) → plynulé vykreslení a správný poloměr.
+4. **Resetovat polygon** a **Vymazat polygon** – ověř, že zmizí body i vybarvená maska.
+5. Změň barvu a průhlednost → náhled se okamžitě aktualizuje.
+6. Zoom **+/-**, **Fit**, **1:1** → HiDPI ok, bez posunu kurzoru/proporcí.
+7. Ulož polygon → znovu otevři → shoda s uloženým stavem.
+
+
+### 8. Zkratky – přehled a možné kolize
+| Sekvence (zdroj) | Poznámka |
+|---|---|
+| `QKeySequence.Close` (QShortcut) | ⚠️ rezervováno macOS |
+| `QKeySequence.Close` (QShortcut) | ⚠️ rezervováno macOS |
+| `QKeySequence.Close` (QShortcut) | ⚠️ rezervováno macOS |
+| `QKeySequence.Copy` (QShortcut) | ⚠️ rezervováno macOS |
+| `QKeySequence.Paste` (QShortcut) | ⚠️ rezervováno macOS |
+
+**Možné kolize v rámci souboru:** QKeySequence.Close
+
+**Doporučení:** vyhnout se přemapování `Cmd+W`, `Cmd+Q`, `Cmd+H`; sjednotit zkratky v README; ponechat `Space` pro náhled/preview.
+
 ---
 
-## 7. Integrita zdrojového souboru
+## 9. Integrita zdrojového souboru
 - Počet řádků: **4124**  •  Velikost: **177144 B**  •  SHA-256: `f02d609dfcea4840ed3226564ac1081c0f7bd09785692582dad3cabffa1759c7`
 - První 3 neprázdné řádky:
   - `# -*- coding: utf-8 -*-`

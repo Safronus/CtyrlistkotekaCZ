@@ -206,8 +206,10 @@ Báze: QTreeView
 | `self.status_config_text` | `check_states_without_notes_real_time` |
 | `self.anonym_config_text` | `update_anonym_photos_list` |
 
-### 4.2 QShortcut
-_—_
+### 4.2 Zkratky (QShortcut / QAction.setShortcut)
+| Sekvence | Zdroj |
+|---|---|
+| `QKeySequence.Close` | QAction.setShortcut |
 
 ### 4.3 QAction
 _—_
@@ -228,9 +230,27 @@ Detekované explicitní cesty:
 ## 6. Vazby na další soubory
 image_viewer, main_window, pdf_generator_window, web_photos_window
 
+
+### 7. QA scénáře (smoke test)
+1. Otevři okno → načti 3+ položky.
+2. Změň layout (položky/strana, okraje) → náhled se mění.
+3. Zapni/vypni popisky/číslování/vodoznak → ověř v náhledu.
+4. Export PDF → soubor existuje, otevře se, počet stran a rozvržení sedí.
+5. Chybové stavy (prázdný vstup) → korektní hláška, UI stabilní.
+
+
+### 8. Zkratky – přehled a možné kolize
+| Sekvence (zdroj) | Poznámka |
+|---|---|
+| `QKeySequence.Close` (QAction.setShortcut) | ⚠️ rezervováno macOS |
+
+_Žádné interní kolize nenalezeny._
+
+**Doporučení:** vyhnout se přemapování `Cmd+W`, `Cmd+Q`, `Cmd+H`; sjednotit zkratky v README; ponechat `Space` pro náhled/preview.
+
 ---
 
-## 7. Integrita zdrojového souboru
+## 9. Integrita zdrojového souboru
 - Počet řádků: **9456**  •  Velikost: **408225 B**  •  SHA-256: `1e474b2af2b451d593bbc1a9c63a029ce4012ac191efdb39cea0fe0df5a0f5bc`
 - První 3 neprázdné řádky:
   - `# -*- coding: utf-8 -*-`

@@ -140,13 +140,18 @@ Báze: QObject
 | `self.btn_json_lookup` | `_on_json_lookup_clicked` |
 | `self.json_tree_filter` | `_on_json_tree_filter_text_changed` |
 
-### 4.2 QShortcut
-| Sekvence | Slot |
+### 4.2 Zkratky (QShortcut / QAction.setShortcut)
+| Sekvence | Zdroj |
 |---|---|
-| `QKeySequence.Close` | `` |
-| `QKeySequence.Close` | `` |
-| `QKeySequence.Copy` | `` |
-| `QKeySequence.Paste` | `` |
+| `QKeySequence.Close` | QShortcut |
+| `QKeySequence.Close` | QShortcut |
+| `QKeySequence.Copy` | QShortcut |
+| `QKeySequence.Paste` | QShortcut |
+| `QKeySequence.Close` | QAction.setShortcut |
+| `QKeySequence(Qt.Key_Return` | QAction.setShortcut |
+| `QKeySequence("Meta+Backspace"` | QAction.setShortcut |
+| `QKeySequence.Copy` | QAction.setShortcut |
+| `QKeySequence.Paste` | QAction.setShortcut |
 
 ### 4.3 QAction
 _—_
@@ -166,9 +171,35 @@ Detekované explicitní cesty:
 ## 6. Vazby na další soubory
 pdf_generator_window, web_photos_window
 
+
+### 7. QA scénáře (smoke test)
+1. Hledej dotaz → zobrazení výsledků.
+2. Stránkování/scroll → bez pádů, UI responsivní.
+3. Výběr více fotek → stažení → ověř uložení a log.
+4. Otevření stažené fotky v hlavním okně (pokud je propojeno) → bez zamrznutí.
+5. Chyby (offline/403/429) → srozumitelné hlášky, retry/backoff.
+
+
+### 8. Zkratky – přehled a možné kolize
+| Sekvence (zdroj) | Poznámka |
+|---|---|
+| `QKeySequence.Close` (QShortcut) | ⚠️ rezervováno macOS |
+| `QKeySequence.Close` (QShortcut) | ⚠️ rezervováno macOS |
+| `QKeySequence.Copy` (QShortcut) | ⚠️ rezervováno macOS |
+| `QKeySequence.Paste` (QShortcut) | ⚠️ rezervováno macOS |
+| `QKeySequence.Close` (QAction.setShortcut) | ⚠️ rezervováno macOS |
+| `QKeySequence(Qt.Key_Return` (QAction.setShortcut) |  |
+| `QKeySequence("Meta+Backspace"` (QAction.setShortcut) |  |
+| `QKeySequence.Copy` (QAction.setShortcut) | ⚠️ rezervováno macOS |
+| `QKeySequence.Paste` (QAction.setShortcut) | ⚠️ rezervováno macOS |
+
+**Možné kolize v rámci souboru:** QKeySequence.Close, QKeySequence.Copy, QKeySequence.Paste
+
+**Doporučení:** vyhnout se přemapování `Cmd+W`, `Cmd+Q`, `Cmd+H`; sjednotit zkratky v README; ponechat `Space` pro náhled/preview.
+
 ---
 
-## 7. Integrita zdrojového souboru
+## 9. Integrita zdrojového souboru
 - Počet řádků: **8691**  •  Velikost: **368970 B**  •  SHA-256: `3cb436091fc14bdecd65f26e4833a68f7eb759a89d5c6bbd8d2a5caae0abce3a`
 - První 3 neprázdné řádky:
   - `# -*- coding: utf-8 -*-`

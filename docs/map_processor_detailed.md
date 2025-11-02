@@ -55,7 +55,7 @@ Báze: QObject
 ### 4.1 Signál → Slot (detekováno)
 _—_
 
-### 4.2 QShortcut
+### 4.2 Zkratky (QShortcut / QAction.setShortcut)
 _—_
 
 ### 4.3 QAction
@@ -70,9 +70,21 @@ _—_
 ## 6. Vazby na další soubory
 _—_
 
+
+### 7. QA scénáře (smoke test)
+1. Lat/lon ↔ tile (různé zoomy) → numerická shoda v toleranci.
+2. Skládání 3×3 dlaždic → správný rozměr mozaiky a návaznost.
+3. Cache hit/miss → druhé volání rychlejší, bez síťových požadavků.
+4. Chyby (404/429) → retry/backoff, log bez výjimek do UI.
+5. Okraje (antimeridian, max zoom) → bez artefaktů.
+
+
+### 8. Zkratky – přehled a možné kolize
+_V souboru nebyly detekovány žádné zkratky přes `QShortcut`/`setShortcut()`._
+
 ---
 
-## 7. Integrita zdrojového souboru
+## 9. Integrita zdrojového souboru
 - Počet řádků: **1792**  •  Velikost: **79904 B**  •  SHA-256: `9b8b2bad95716fd5cfccb5b9f4b204a5ef4f9916604d663936cbebe7eecf7c81`
 - První 3 neprázdné řádky:
   - `# -*- coding: utf-8 -*-`
